@@ -1,0 +1,13 @@
+{
+  "name": "Hugos skiftschema",
+  "short_name": "Hugos skift",
+  "description": "Visar Hugos (skiftlag 1) nästa arbetspass – dag (F) eller natt (N).",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0e1420",
+  "theme_color": "#0e1420",
+  "lang": "sv",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
