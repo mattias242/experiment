@@ -367,8 +367,16 @@
     return null;
   }
 
+  // BinType är enligt EDP:s API-dokumentation ett objekt {Code, Size, Unit, ContainerType}
+  function binTypeText(b) {
+    if (!b) return "";
+    if (typeof b === "string") return b;
+    return [b.ContainerType, b.Code, b.Size && b.Unit ? b.Size + " " + b.Unit : ""].filter(Boolean).join(" ");
+  }
+
   function classifyBin(service) {
-    const text = ((service.WasteType || "") + " " + (service.BinType || "")).toLowerCase();
+    const text = ((service.WasteType || "") + " " + binTypeText(service.BinType) + " " +
+                  (service.Fee && service.Fee.Description || "")).toLowerCase();
     if (/k[äa]rl\s*1|fni\s*1|fyrfack\s*1/.test(text)) return "k1";
     if (/k[äa]rl\s*2|fni\s*2|fyrfack\s*2/.test(text)) return "k2";
     return null;
@@ -420,7 +428,7 @@
     for (const s of services) {
       const li = document.createElement("li");
       const name = document.createElement("span");
-      name.textContent = [s.WasteType, s.BinType].filter(Boolean).join(" · ") || "Tjänst";
+      name.textContent = [s.WasteType, binTypeText(s.BinType)].filter(Boolean).join(" · ") || "Tjänst";
       const date = document.createElement("span");
       const parsed = parsePickupDate(s.NextWastePickup);
       date.textContent = parsed ? formatShort(parsed) : (s.NextWastePickup || "–");
