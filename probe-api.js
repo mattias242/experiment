@@ -8,20 +8,35 @@ const ADDRESS = process.argv[2] || "Näs Byväg 7";
 // Kandidater: SimpleWastePickup-modulen (känd från öppen källkod) under båda
 // installationsvarianterna, plus dokumentationsappen och några närliggande
 // modulnamn som förekommer i andra kommuners EDP-installationer.
-const PROBES = [
-  { method: "GET",  path: "/FutureWebBasic/SimpleWastePickup/SimpleWastePickup" },
-  { method: "POST", path: "/FutureWebBasic/SimpleWastePickup/SearchAdress", body: "searchText=" + encodeURIComponent(ADDRESS) },
-  { method: "GET",  path: "/FutureWebBasic/SimpleWastePickup/GetWastePickupSchedule?address=" + encodeURIComponent(ADDRESS) },
-  { method: "GET",  path: "/FutureWeb/SimpleWastePickup/SimpleWastePickup" },
-  { method: "POST", path: "/FutureWeb/SimpleWastePickup/SearchAdress", body: "searchText=" + encodeURIComponent(ADDRESS) },
-  { method: "GET",  path: "/FutureWeb/SimpleWastePickup/GetWastePickupSchedule?address=" + encodeURIComponent(ADDRESS) },
-  { method: "GET",  path: "/FutureWebApiDoc/" },
-  { method: "GET",  path: "/FutureWebBasic/" },
-  { method: "GET",  path: "/FutureWebBasic/MyPages/MyPages" },
-];
+// GetWastePickupSchedule kräver den fullständiga anläggningssträngen från
+// SearchAdress ("Adress, Ort (nummer)") — bara gatuadress ger Runtime Error.
+async function resolveBuilding() {
+  try {
+    const res = await fetch(HOST + "/FutureWebBasic/SimpleWastePickup/SearchAdress", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "searchText=" + encodeURIComponent(ADDRESS),
+      signal: AbortSignal.timeout(10000)
+    });
+    const data = await res.json();
+    return (data.Buildings && data.Buildings[0]) || ADDRESS;
+  } catch (e) { return ADDRESS; }
+}
 
 (async () => {
-  console.log(`Probar ${HOST} med adress "${ADDRESS}"\n`);
+  const building = await resolveBuilding();
+  const PROBES = [
+    { method: "GET",  path: "/FutureWebBasic/SimpleWastePickup/SimpleWastePickup" },
+    { method: "POST", path: "/FutureWebBasic/SimpleWastePickup/SearchAdress", body: "searchText=" + encodeURIComponent(ADDRESS) },
+    { method: "GET",  path: "/FutureWebBasic/SimpleWastePickup/GetWastePickupSchedule?address=" + encodeURIComponent(building) },
+    { method: "GET",  path: "/FutureWeb/SimpleWastePickup/SimpleWastePickup" },
+    { method: "POST", path: "/FutureWeb/SimpleWastePickup/SearchAdress", body: "searchText=" + encodeURIComponent(ADDRESS) },
+    { method: "GET",  path: "/FutureWeb/SimpleWastePickup/GetWastePickupSchedule?address=" + encodeURIComponent(building) },
+    { method: "GET",  path: "/FutureWebApiDoc/" },
+    { method: "GET",  path: "/FutureWebBasic/" },
+    { method: "GET",  path: "/FutureWebBasic/MyPages/MyPages" },
+  ];
+  console.log(`Probar ${HOST} med adress "${ADDRESS}" → anläggning "${building}"\n`);
   for (const p of PROBES) {
     const url = HOST + p.path;
     let line;
