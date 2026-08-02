@@ -1,0 +1,285 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hämtschema – Näs Byväg 7</title>
+<style>
+  :root {
+    --bg: #F5F4EF;
+    --card: #FFFFFF;
+    --ink: #20261F;
+    --muted: #6B7268;
+    --line: #E0DFD6;
+    --k1: #3E5C76;
+    --k1-soft: #E7EDF3;
+    --k2: #57794E;
+    --k2-soft: #E9F0E6;
+    --warn-soft: #F6EEDF;
+    --warn-ink: #7A5C1E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171B19;
+      --card: #1F2521;
+      --ink: #E7EAE4;
+      --muted: #98A094;
+      --line: #333B34;
+      --k1: #8FB0CC;
+      --k1-soft: #253440;
+      --k2: #9CC08F;
+      --k2-soft: #263626;
+      --warn-soft: #33301F;
+      --warn-ink: #D8BE7A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171B19; --card: #1F2521; --ink: #E7EAE4; --muted: #98A094;
+    --line: #333B34; --k1: #8FB0CC; --k1-soft: #253440; --k2: #9CC08F;
+    --k2-soft: #263626; --warn-soft: #33301F; --warn-ink: #D8BE7A;
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4EF; --card: #FFFFFF; --ink: #20261F; --muted: #6B7268;
+    --line: #E0DFD6; --k1: #3E5C76; --k1-soft: #E7EDF3; --k2: #57794E;
+    --k2-soft: #E9F0E6; --warn-soft: #F6EEDF; --warn-ink: #7A5C1E;
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    padding: 1.5rem 1rem 3rem;
+  }
+  main { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
+
+  header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
+  header p { color: var(--muted); font-size: 0.9rem; }
+
+  .label {
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.25rem 1.4rem;
+  }
+
+  /* Hero: next pickup */
+  #next-card { border-width: 2px; }
+  #next-card.k1 { border-color: var(--k1); }
+  #next-card.k2 { border-color: var(--k2); }
+  .next-date {
+    font-size: clamp(1.8rem, 6vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    text-wrap: balance;
+    margin: 0.15rem 0 0.3rem;
+  }
+  .countdown { font-size: 1.05rem; font-weight: 600; }
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-top: 0.6rem;
+  }
+  .badge.k1 { background: var(--k1-soft); color: var(--k1); }
+  .badge.k2 { background: var(--k2-soft); color: var(--k2); }
+  .also { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+
+  /* Fractions */
+  .bins { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  @media (max-width: 560px) { .bins { grid-template-columns: 1fr; } }
+  .bin h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.1rem; }
+  .bin .interval { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.85rem; }
+  .bin.k1 h2 { color: var(--k1); }
+  .bin.k2 h2 { color: var(--k2); }
+  .bin .label { margin-top: 0.75rem; }
+  .bin ul { list-style: none; padding: 0; margin: 0.3rem 0 0; }
+  .bin li { padding: 0.28rem 0; border-bottom: 1px dashed var(--line); font-size: 0.95rem; }
+  .bin li:last-child { border-bottom: none; }
+  .bin li.today-mark { font-weight: 700; }
+
+  .note { background: var(--warn-soft); border: none; color: var(--warn-ink); font-size: 0.9rem; }
+
+  /* Schedule */
+  .sched { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 0.9rem; }
+  @media (max-width: 560px) { .sched { grid-template-columns: 1fr; } }
+  .sched ul { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+  .sched li {
+    display: flex; justify-content: space-between;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+    border-radius: 6px;
+  }
+  .sched li.past { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+  .sched li.is-next { font-weight: 700; }
+  .sched li.is-next.k1 { background: var(--k1-soft); color: var(--k1); }
+  .sched li.is-next.k2 { background: var(--k2-soft); color: var(--k2); }
+
+  footer { color: var(--muted); font-size: 0.8rem; }
+  footer a { color: inherit; }
+</style>
+
+<main>
+  <header>
+    <h1>Renhållning – nästa hämtdag</h1>
+    <p>Anläggning Näs Byväg 7 · Stenungsunds kommun · schema aug–dec 2026</p>
+  </header>
+
+  <section class="card" id="next-card" aria-live="polite">
+    <span class="label">Nästa hämtning</span>
+    <div class="next-date" id="next-date">–</div>
+    <div class="countdown" id="countdown"></div>
+    <span class="badge" id="next-badge"></span>
+    <div id="next-fractions" style="margin-top:0.8rem; font-size:0.95rem;"></div>
+    <div class="also" id="also"></div>
+  </section>
+
+  <section class="card">
+    <span class="label">Inför tömning – detta ingår i kärlen</span>
+    <div class="bins" style="margin-top:0.9rem;">
+      <div class="bin k1" id="bin1">
+        <h2>Kärl 1</h2>
+        <div class="interval">Töms var fjärde vecka (onsdagar)</div>
+        <span class="label">Kärldel</span>
+        <ul>
+          <li>Restavfall</li>
+          <li>Plastförpackningar</li>
+        </ul>
+        <span class="label">Insats</span>
+        <ul>
+          <li>Tidningar</li>
+          <li>Metallförpackningar</li>
+        </ul>
+      </div>
+      <div class="bin k2" id="bin2">
+        <h2>Kärl 2</h2>
+        <div class="interval">Töms varannan vecka (torsdagar)</div>
+        <span class="label">Kärldel</span>
+        <ul>
+          <li>Matavfall</li>
+          <li>Pappersförpackningar</li>
+        </ul>
+        <span class="label">Insats</span>
+        <ul>
+          <li>Ofärgade glasförpackningar</li>
+          <li>Färgade glasförpackningar</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="card note">
+    <strong>Farligt avfall-boxen</strong> (ljuskällor, småelektronik, småbatterier – ej litium)
+    förvaras inomhus och hängs på valfritt fyrfackskärl när den är minst halvfull.
+    Ta in boxen efter tömning. Litiumbatterier lämnas på återvinningscentralen Stora Höga eller Kläpp.
+  </section>
+
+  <section class="card">
+    <span class="label">Hela schemat 2026</span>
+    <div class="sched">
+      <div>
+        <span class="label" style="color:var(--k1);">Kärl 1</span>
+        <ul id="list1"></ul>
+      </div>
+      <div>
+        <span class="label" style="color:var(--k2);">Kärl 2</span>
+        <ul id="list2"></ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Källa: Hämtschema anläggning Näs Byväg 7 samt stenungsund.se om fastighetsnära insamling.
+    Frågor: Kontaktcenter 0303-73 00 00 · kommun@stenungsund.se
+  </footer>
+</main>
+
+<script>
+  const SCHEDULE = {
+    k1: ["2026-08-05","2026-09-02","2026-09-30","2026-10-28","2026-11-25","2026-12-22"],
+    k2: ["2026-08-13","2026-08-27","2026-09-10","2026-09-24","2026-10-08","2026-10-22",
+         "2026-11-05","2026-11-19","2026-12-03","2026-12-17","2026-12-30"]
+  };
+  const FRACTIONS = {
+    k1: "Restavfall · Plastförpackningar · Tidningar · Metallförpackningar",
+    k2: "Matavfall · Pappersförpackningar · Ofärgat glas · Färgat glas"
+  };
+
+  // Dagens datum i svensk tid, som YYYY-MM-DD (sv-SE-formatet är redan ISO-likt)
+  const todayStr = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+
+  function daysBetween(fromStr, toStr) {
+    return Math.round((Date.parse(toStr) - Date.parse(fromStr)) / 86400000);
+  }
+  function formatLong(dateStr) {
+    const d = new Date(dateStr + "T12:00:00");
+    const s = d.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  function formatShort(dateStr) {
+    const d = new Date(dateStr + "T12:00:00");
+    return d.toLocaleDateString("sv-SE", { weekday: "short", day: "numeric", month: "short" });
+  }
+  function nextOf(dates) {
+    return dates.find(d => d >= todayStr) || null;
+  }
+
+  const next1 = nextOf(SCHEDULE.k1);
+  const next2 = nextOf(SCHEDULE.k2);
+
+  let nextBin = null, nextDate = null;
+  if (next1 && (!next2 || next1 <= next2)) { nextBin = "k1"; nextDate = next1; }
+  else if (next2) { nextBin = "k2"; nextDate = next2; }
+
+  const card = document.getElementById("next-card");
+  const badge = document.getElementById("next-badge");
+
+  if (nextDate) {
+    const days = daysBetween(todayStr, nextDate);
+    card.classList.add(nextBin);
+    document.getElementById("next-date").textContent = formatLong(nextDate);
+    document.getElementById("countdown").textContent =
+      days === 0 ? "Idag – ställ fram kärlet!" :
+      days === 1 ? "Imorgon – ställ fram kärlet ikväll" :
+      "Om " + days + " dagar";
+    badge.textContent = nextBin === "k1" ? "Kärl 1" : "Kärl 2";
+    badge.classList.add(nextBin);
+    document.getElementById("next-fractions").textContent = FRACTIONS[nextBin];
+
+    const otherBin = nextBin === "k1" ? "k2" : "k1";
+    const otherNext = nextBin === "k1" ? next2 : next1;
+    document.getElementById("also").textContent = otherNext
+      ? "Därefter " + (otherBin === "k1" ? "Kärl 1" : "Kärl 2") + ": " + formatLong(otherNext).toLowerCase()
+      : (otherBin === "k1" ? "Kärl 1" : "Kärl 2") + ": inga fler tömningar i schemat";
+  } else {
+    document.getElementById("next-date").textContent = "Schemat är slut";
+    document.getElementById("countdown").textContent = "Hämta ett nytt hämtschema för 2027 från kommunen.";
+    badge.remove();
+  }
+
+  function renderList(el, dates, binClass, nextForBin) {
+    for (const d of dates) {
+      const li = document.createElement("li");
+      const day = document.createElement("span");
+      day.textContent = formatShort(d);
+      const iso = document.createElement("span");
+      iso.textContent = d;
+      li.append(day, iso);
+      if (d < todayStr) li.classList.add("past");
+      if (d === nextForBin) li.classList.add("is-next", binClass);
+      el.appendChild(li);
+    }
+  }
+  renderList(document.getElementById("list1"), SCHEDULE.k1, "k1", next1);
+  renderList(document.getElementById("list2"), SCHEDULE.k2, "k2", next2);
+</script>
