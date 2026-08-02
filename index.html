@@ -1,0 +1,374 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1420">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Hugos skiftschema</title>
+
+<style>
+  :root {
+    --bg: #eef1f6;
+    --card: #ffffff;
+    --ink: #1a2233;
+    --ink-soft: #5a6478;
+    --line: #d8dde7;
+    --sun: #b06f10;
+    --sun-bg: #f7e8cf;
+    --moon: #3d55c4;
+    --moon-bg: #dfe5fb;
+    --free: #2e7350;
+    --free-bg: #dcece3;
+    --today-ring: #1a2233;
+    --hero-day-bg: linear-gradient(160deg, #fdf3de 0%, #f7e3bd 100%);
+    --hero-night-bg: linear-gradient(160deg, #e3e8fc 0%, #ccd6f8 100%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1420;
+      --card: #171f2e;
+      --ink: #e8ecf5;
+      --ink-soft: #8b95ab;
+      --line: #263044;
+      --sun: #f0b45c;
+      --sun-bg: #3a2d14;
+      --moon: #a4b7ff;
+      --moon-bg: #212c4e;
+      --free: #7cc79c;
+      --free-bg: #16301f;
+      --today-ring: #e8ecf5;
+      --hero-day-bg: linear-gradient(160deg, #2c2410 0%, #453413 100%);
+      --hero-night-bg: linear-gradient(160deg, #1a2340 0%, #232f5c 100%);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f6; --card: #ffffff; --ink: #1a2233; --ink-soft: #5a6478;
+    --line: #d8dde7; --sun: #b06f10; --sun-bg: #f7e8cf; --moon: #3d55c4;
+    --moon-bg: #dfe5fb; --free: #2e7350; --free-bg: #dcece3; --today-ring: #1a2233;
+    --hero-day-bg: linear-gradient(160deg, #fdf3de 0%, #f7e3bd 100%);
+    --hero-night-bg: linear-gradient(160deg, #e3e8fc 0%, #ccd6f8 100%);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1420; --card: #171f2e; --ink: #e8ecf5; --ink-soft: #8b95ab;
+    --line: #263044; --sun: #f0b45c; --sun-bg: #3a2d14; --moon: #a4b7ff;
+    --moon-bg: #212c4e; --free: #7cc79c; --free-bg: #16301f; --today-ring: #e8ecf5;
+    --hero-day-bg: linear-gradient(160deg, #2c2410 0%, #453413 100%);
+    --hero-night-bg: linear-gradient(160deg, #1a2340 0%, #232f5c 100%);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.45;
+    padding: max(16px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    max-width: 480px;
+    margin-inline: auto;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 2px 16px;
+  }
+  header h1 { font-size: 1.15rem; font-weight: 700; margin: 0; letter-spacing: 0.01em; }
+  header .team { font-size: 0.75rem; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  /* Hero */
+  #hero { padding: 20px 18px; margin-bottom: 14px; }
+  #hero.day   { background: var(--hero-day-bg);   border-color: transparent; }
+  #hero.night { background: var(--hero-night-bg); border-color: transparent; }
+  #hero .eyebrow {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--ink-soft); margin: 0 0 6px;
+  }
+  #hero .when {
+    font-size: 1.75rem; font-weight: 700; margin: 0; line-height: 1.15;
+    text-wrap: balance; font-variant-numeric: tabular-nums;
+  }
+  #hero .shift-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  #hero .countdown { margin: 10px 0 0; font-size: 0.95rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  #hero .today-note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 0.85rem; color: var(--ink-soft); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 0.9rem; font-weight: 700;
+    padding: 6px 12px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  .badge svg { width: 16px; height: 16px; flex: none; }
+  .badge.day   { background: var(--sun-bg);  color: var(--sun); }
+  .badge.night { background: var(--moon-bg); color: var(--moon); }
+  .badge.free  { background: var(--free-bg); color: var(--free); }
+  .badge.sm { font-size: 0.78rem; padding: 4px 10px; gap: 5px; }
+  .badge.sm svg { width: 13px; height: 13px; }
+
+  /* Upcoming */
+  section h2 {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--ink-soft); margin: 20px 4px 10px;
+  }
+  #upcoming { padding: 4px 16px; }
+  #upcoming .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid var(--line);
+  }
+  #upcoming .row:last-child { border-bottom: none; }
+  #upcoming .dates { font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #upcoming .len { font-size: 0.78rem; color: var(--ink-soft); margin-left: 6px; font-weight: 500; }
+
+  /* Calendar */
+  #cal { padding: 14px; }
+  #cal .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  #cal .cal-title { font-weight: 700; font-size: 1rem; text-transform: capitalize; }
+  #cal button {
+    background: none; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 10px; width: 38px; height: 38px; font-size: 1.1rem;
+    cursor: pointer; display: grid; place-items: center;
+  }
+  #cal button:focus-visible { outline: 2px solid var(--moon); outline-offset: 2px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-grid .dow {
+    text-align: center; font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--ink-soft); padding: 4px 0;
+  }
+  .cal-cell {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; border-radius: 10px; font-size: 0.85rem;
+    font-variant-numeric: tabular-nums; font-weight: 500;
+  }
+  .cal-cell.other { visibility: hidden; }
+  .cal-cell.F { background: var(--sun-bg);  color: var(--sun);  font-weight: 700; }
+  .cal-cell.N { background: var(--moon-bg); color: var(--moon); font-weight: 700; }
+  .cal-cell.today { box-shadow: inset 0 0 0 2px var(--today-ring); }
+  .cal-cell .mark { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.02em; }
+
+  .legend { display: flex; gap: 14px; margin: 12px 4px 0; font-size: 0.75rem; color: var(--ink-soft); flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+  .legend .li-f i { background: var(--sun-bg); box-shadow: inset 0 0 0 1.5px var(--sun); }
+  .legend .li-n i { background: var(--moon-bg); box-shadow: inset 0 0 0 1.5px var(--moon); }
+
+  footer { margin-top: 22px; font-size: 0.72rem; color: var(--ink-soft); text-align: center; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    #hero { animation: rise 0.35s ease-out; }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+
+<header>
+  <h1>Hugos skiftschema</h1>
+  <span class="team">Skiftlag 1</span>
+</header>
+
+<div class="card" id="hero" aria-live="polite"></div>
+
+<section>
+  <h2>Kommande pass</h2>
+  <div class="card" id="upcoming"></div>
+</section>
+
+<section>
+  <h2>Kalender</h2>
+  <div class="card" id="cal">
+    <div class="cal-head">
+      <button id="prevM" aria-label="Föregående månad">‹</button>
+      <div class="cal-title" id="calTitle"></div>
+      <button id="nextM" aria-label="Nästa månad">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+  <div class="legend">
+    <span class="li-f"><i></i>F · Dagpass 06–18</span>
+    <span class="li-n"><i></i>N · Nattpass 18–06</span>
+  </div>
+</section>
+
+<footer>5-veckors rotation · cykelstart mån 1 juni 2026</footer>
+
+<script>
+  "use strict";
+
+  // Skiftlag 1, avläst ur 2026 års schemablad (verifierat mot juni–september).
+  // 35-dagarscykel med ankare måndag 2026-06-01. F = 06–18, N = 18–06 (+1 dag).
+  const ANCHOR = new Date(2026, 5, 1);
+  const PATTERN = [
+    "F","F","-","-","N","N","N",
+    "-","-","F","F","-","-","-",
+    "-","-","-","-","F","F","F",
+    "-","-","N","N","-","-","-",
+    "N","N","-","-","-","-","-",
+  ];
+
+  const DAY_MS = 86400000;
+  const WEEKDAYS = ["söndag","måndag","tisdag","onsdag","torsdag","fredag","lördag"];
+  const WEEKDAYS_SHORT = ["sön","mån","tis","ons","tors","fre","lör"];
+  const MONTHS = ["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"];
+  const MONTHS_SHORT = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+
+  const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+  function codeFor(date) {
+    const diff = Math.round((midnight(date) - ANCHOR) / DAY_MS);
+    return PATTERN[((diff % 35) + 35) % 35];
+  }
+
+  // Passets start/slut som Date-objekt; N sträcker sig in i nästa dygn.
+  function shiftFor(date) {
+    const code = codeFor(date);
+    if (code === "-") return null;
+    const d = midnight(date);
+    return code === "F"
+      ? { code, start: new Date(d.getTime() + 6 * 3600000),  end: new Date(d.getTime() + 18 * 3600000) }
+      : { code, start: new Date(d.getTime() + 18 * 3600000), end: new Date(d.getTime() + 30 * 3600000) };
+  }
+
+  // Första pass (fr.o.m. gårdagen, eftersom ett N-pass kan pågå in i idag) vars slut ligger i framtiden.
+  function currentOrNextShift(now) {
+    for (let i = -1; ; i++) {
+      const s = shiftFor(addDays(now, i));
+      if (s && s.end > now) return s;
+    }
+  }
+
+  const ICONS = {
+    F: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>',
+    N: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.4 14.9A8.6 8.6 0 0 1 9.1 3.6a8.6 8.6 0 1 0 11.3 11.3z"/></svg>',
+  };
+
+  function badge(code, small) {
+    const cls = code === "F" ? "day" : "night";
+    const label = code === "F" ? "Dagpass 06:00–18:00" : "Nattpass 18:00–06:00";
+    return `<span class="badge ${cls}${small ? " sm" : ""}">${ICONS[code]}${small ? (code === "F" ? "Dag" : "Natt") : label}</span>`;
+  }
+
+  function relativeDay(target, now) {
+    const days = Math.round((midnight(target) - midnight(now)) / DAY_MS);
+    if (days === 0) return "idag";
+    if (days === 1) return "imorgon";
+    return `${WEEKDAYS[target.getDay()]} om ${days} dagar`;
+  }
+
+  function durationText(ms) {
+    const mins = Math.max(1, Math.round(ms / 60000));
+    const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+    if (d > 0) return `${d} dygn ${h} tim`;
+    if (h > 0) return `${h} tim ${m} min`;
+    return `${m} min`;
+  }
+
+  function fmtDate(d) {
+    return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  }
+
+  function renderHero() {
+    const now = new Date();
+    const s = currentOrNextShift(now);
+    const ongoing = s.start <= now;
+    const el = document.getElementById("hero");
+    el.className = "card " + (s.code === "F" ? "day" : "night");
+
+    const todayCode = codeFor(now);
+    const todayNote = ongoing ? "" :
+      `<p class="today-note">Idag: ${
+        todayCode === "-" ? "ledig"
+        : todayCode === "F" ? "dagpass 06:00–18:00"
+        : "nattpass 18:00–06:00"}</p>`;
+
+    el.innerHTML = ongoing
+      ? `<p class="eyebrow">Pågående pass</p>
+         <p class="when">${fmtDate(s.start)}</p>
+         <div class="shift-row">${badge(s.code)}</div>
+         <p class="countdown">Slutar ${s.code === "F" ? "18:00" : "06:00"} · ${durationText(s.end - now)} kvar</p>`
+      : `<p class="eyebrow">Nästa arbetspass</p>
+         <p class="when">${fmtDate(s.start)}</p>
+         <div class="shift-row">${badge(s.code)}</div>
+         <p class="countdown">Börjar ${relativeDay(s.start, now)} · om ${durationText(s.start - now)}</p>
+         ${todayNote}`;
+  }
+
+  // Kommande pass grupperade i sammanhängande block (t.ex. "fre 14 – sön 16 aug · Natt").
+  function renderUpcoming() {
+    const now = new Date();
+    const blocks = [];
+    let d = midnight(currentOrNextShift(now).start); // blocket med pågående/nästa pass först
+    while (blocks.length < 6) {
+      while (codeFor(d) === "-") d = addDays(d, 1);
+      const code = codeFor(d), start = d;
+      while (codeFor(addDays(d, 1)) === code) d = addDays(d, 1);
+      blocks.push({ code, start, end: d, days: Math.round((midnight(d) - midnight(start)) / DAY_MS) + 1 });
+      d = addDays(d, 1);
+    }
+    document.getElementById("upcoming").innerHTML = blocks.map(b => {
+      const sameMonth = b.start.getMonth() === b.end.getMonth();
+      const span = b.days === 1
+        ? `${WEEKDAYS_SHORT[b.start.getDay()]} ${b.start.getDate()} ${MONTHS_SHORT[b.start.getMonth()]}`
+        : `${WEEKDAYS_SHORT[b.start.getDay()]} ${b.start.getDate()}${sameMonth ? "" : " " + MONTHS_SHORT[b.start.getMonth()]} – ${WEEKDAYS_SHORT[b.end.getDay()]} ${b.end.getDate()} ${MONTHS_SHORT[b.end.getMonth()]}`;
+      return `<div class="row">
+        <span class="dates">${span}<span class="len">${b.days === 1 ? "1 pass" : b.days + " pass"}</span></span>
+        ${badge(b.code, true)}
+      </div>`;
+    }).join("");
+  }
+
+  let calYear, calMonth;
+
+  function renderCal() {
+    const today = midnight(new Date());
+    document.getElementById("calTitle").textContent = `${MONTHS[calMonth]} ${calYear}`;
+    const first = new Date(calYear, calMonth, 1);
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const lead = (first.getDay() + 6) % 7; // måndag först
+    let html = ["m","t","o","t","f","l","s"].map(x => `<div class="dow">${x}</div>`).join("");
+    for (let i = 0; i < lead; i++) html += '<div class="cal-cell other"></div>';
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(calYear, calMonth, day);
+      const code = codeFor(d);
+      const cls = [
+        "cal-cell",
+        code !== "-" ? code : "",
+        d.getTime() === today.getTime() ? "today" : "",
+      ].join(" ");
+      html += `<div class="${cls}"><span>${day}</span>${code !== "-" ? `<span class="mark">${code}</span>` : ""}</div>`;
+    }
+    document.getElementById("calGrid").innerHTML = html;
+  }
+
+  document.getElementById("prevM").addEventListener("click", () => {
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCal();
+  });
+  document.getElementById("nextM").addEventListener("click", () => {
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCal();
+  });
+
+  function renderAll() {
+    const now = new Date();
+    if (calYear === undefined) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+    renderHero();
+    renderUpcoming();
+    renderCal();
+  }
+
+  renderAll();
+  setInterval(renderHero, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) renderAll(); });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
