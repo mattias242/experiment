@@ -291,16 +291,38 @@
   }
 
   // ------- Live-hämtning från kommunens tjänst -------
+  const diagnostics = [];
   async function apiFetch(endpoint, options) {
     let lastErr;
     for (const base of API_BASES) {
+      const label = base === "/api" ? "via server.js-proxyn" : "direkt mot kommunen";
       try {
         const res = await fetch(base + "/" + endpoint, options);
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) {
+          let detail = "HTTP " + res.status;
+          try {
+            const errBody = await res.json();
+            if (errBody && errBody.detail) detail += " – " + errBody.detail;
+          } catch (e) {}
+          throw new Error(detail);
+        }
         return await res.json();
-      } catch (err) { lastErr = err; }
+      } catch (err) {
+        diagnostics.push(label + ": " + (err.message || err.name));
+        lastErr = err;
+      }
     }
     throw lastErr;
+  }
+
+  function runHint() {
+    if (location.protocol === "file:") {
+      return "Du har öppnat filen direkt – starta appen med “node server.js” och öppna http://localhost:8080 för aktuella datum.";
+    }
+    if (!/^(localhost|127\.)/.test(location.hostname)) {
+      return "Den här sidan körs på en server som inte tillåter externa anrop – kör “node server.js” lokalt för aktuella datum.";
+    }
+    return "Kontrollera serverns terminalfönster för felmeddelande från proxyn.";
   }
 
   async function searchAddress(text) {
@@ -428,12 +450,25 @@
     }
   }
 
-  function useFallback(reason) {
+  function useFallback(reason, showDiagnostics) {
     const nextOf = ds => ds.find(d => d >= todayStr) || null;
     const n1 = nextOf(SCHEDULE.k1), n2 = nextOf(SCHEDULE.k2);
     const status = el("status");
     status.className = "status fallback";
     status.textContent = reason + " Visar inlagt schema för Näs Byväg 7 (aug–dec 2026).";
+    if (showDiagnostics) {
+      const hint = document.createElement("div");
+      hint.style.marginTop = "0.4rem";
+      hint.textContent = runHint();
+      status.appendChild(hint);
+      if (diagnostics.length) {
+        const detail = document.createElement("div");
+        detail.style.marginTop = "0.3rem";
+        detail.style.fontSize = "0.8rem";
+        detail.textContent = "Fel: " + diagnostics.join(" · ");
+        status.appendChild(detail);
+      }
+    }
     el("services").hidden = true;
     if (!n1 && !n2) {
       renderNext(null, null, "Schemat är slut – hämta 2027 års schema från kommunen.");
@@ -446,6 +481,7 @@
     const status = el("status");
     status.className = "status";
     status.textContent = "Söker aktuella datum …";
+    diagnostics.length = 0;
     try {
       const building = await searchAddress(addressText);
       const services = await getSchedule(building);
@@ -467,7 +503,12 @@
       renderNext(next1, next2);
       try { localStorage.setItem("hamtschema-adress", addressText); } catch (e) {}
     } catch (err) {
-      useFallback("Kunde inte nå kommunens tjänst härifrån.");
+      const notFound = err && /hittades inte|Inga tjänster/.test(err.message || "");
+      if (notFound) {
+        useFallback("”" + addressText + "” – " + err.message + ".");
+      } else {
+        useFallback("Kunde inte nå kommunens tjänst härifrån.", true);
+      }
     }
   }
 

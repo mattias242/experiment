@@ -27,17 +27,26 @@ const server = http.createServer(async (req, res) => {
             req.on("error", reject);
           })
         : undefined;
+      const headers = {
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)"
+      };
+      if (body) headers["Content-Type"] = req.headers["content-type"] || "application/x-www-form-urlencoded";
       const upstream = await fetch(API_BASE + "/" + endpoint + url.search, {
         method: req.method,
-        headers: body ? { "Content-Type": req.headers["content-type"] || "application/x-www-form-urlencoded" } : {},
+        headers,
         body
       });
       const text = await upstream.text();
+      if (!upstream.ok) {
+        console.error(`Upstream ${endpoint}: HTTP ${upstream.status} – ${text.slice(0, 200)}`);
+      }
       res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
       res.end(text);
     } catch (err) {
+      console.error(`Proxyfel mot ${API_BASE}/${endpoint}:`, err.cause || err);
       res.writeHead(502, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: String(err) }));
+      res.end(JSON.stringify({ error: "Proxyn kunde inte nå kommunens tjänst", detail: String(err.cause || err) }));
     }
     return;
   }
