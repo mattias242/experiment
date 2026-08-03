@@ -1,0 +1,7 @@
+services:
+  hamtning:
+    build: .
+    container_name: hamtning
+    ports:
+      - "3458:8080"
+    restart: unless-stopped
