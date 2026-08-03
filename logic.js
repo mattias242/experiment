@@ -76,5 +76,43 @@
       .sort((a, b) => providers[a].label.localeCompare(providers[b].label, "sv"));
   }
 
-  return { displayAddress, matchLabels, parsePickupDate, daysBetween, binTypeText, classifyBin, sortProviderKeys };
+  var WEEKDAYS_SV = ["söndag", "måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag"];
+  var MONTHS_SV = ["januari", "februari", "mars", "april", "maj", "juni", "juli",
+                   "augusti", "september", "oktober", "november", "december"];
+
+  function svDate(iso) {
+    const d = new Date(iso + "T12:00:00Z");
+    return WEEKDAYS_SV[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS_SV[d.getUTCMonth()];
+  }
+
+  function addDays(iso, n) {
+    const d = new Date(iso + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Notisen kvällen före tömning. Titeln säger vad som händer ("Kärl 2 töms
+  // imorgon") och bodyn står för sig själv på en låsskärm. Töms inget imorgon
+  // blir det ingen påminnelse alls.
+  function reminderFor(services, todayStr) {
+    const tomorrow = addDays(todayStr, 1);
+    const due = (services || []).filter(s => parsePickupDate(s.NextWastePickup, todayStr) === tomorrow);
+    if (!due.length) return null;
+    const when = svDate(tomorrow);
+    const bins = due.map(classifyBin).filter((b, i, a) => b && a.indexOf(b) === i).sort();
+    if (bins.length) {
+      const subject = bins.map(b => b === "k1" ? "Kärl 1" : "Kärl 2").join(" och ");
+      return { title: subject + " töms imorgon", body: subject + " töms " + when + "." };
+    }
+    const fractions = due.map(s => s.WasteType || binTypeText(s.BinType) || "Avfall");
+    const list = fractions.length > 1
+      ? fractions.slice(0, -1).join(", ") + " och " + fractions[fractions.length - 1]
+      : fractions[0];
+    return {
+      title: "Sophämtning imorgon",
+      body: when.charAt(0).toUpperCase() + when.slice(1) + " töms " + list + "."
+    };
+  }
+
+  return { displayAddress, matchLabels, parsePickupDate, daysBetween, binTypeText, classifyBin, sortProviderKeys, reminderFor };
 });

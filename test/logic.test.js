@@ -92,3 +92,42 @@ describe("Egenskap: kommunerna sorteras i svensk bokstavsordning", () => {
     assert.deepEqual(sortProviderKeys(providers), ["boden", "ssam", "stenungsund", "orebro"]);
   });
 });
+
+describe("Egenskap: påminnelsen kvällen före tömning", () => {
+  const { reminderFor } = require("../logic.js");
+  const fyrfack = (bin, date) => ({ WasteType: "FNI " + bin, BinType: { ContainerType: "Fyrfack", Code: "Kärl " + bin.slice(-1) }, NextWastePickup: date });
+
+  it("Givet att Kärl 2 töms imorgon, när påminnelsen byggs, så säger titeln vad som händer och bodyn står för sig själv", () => {
+    const r = reminderFor([fyrfack("Kärl 2", "2026-08-06")], "2026-08-05");
+    assert.equal(r.title, "Kärl 2 töms imorgon");
+    assert.equal(r.body, "Kärl 2 töms torsdag 6 augusti.");
+  });
+
+  it("Givet att båda kärlen töms samma dag, när påminnelsen byggs, så nämns båda", () => {
+    const r = reminderFor([fyrfack("Kärl 1", "2026-08-06"), fyrfack("Kärl 2", "2026-08-06")], "2026-08-05");
+    assert.equal(r.title, "Kärl 1 och Kärl 2 töms imorgon");
+  });
+
+  it("Givet en kommun utan fyrfack, när påminnelsen byggs, så listas fraktionerna som töms", () => {
+    const services = [
+      { WasteType: "Matavfall", NextWastePickup: "2026-08-06" },
+      { WasteType: "Restavfall", NextWastePickup: "2026-08-06" },
+      { WasteType: "Trädgårdsavfall", NextWastePickup: "2026-08-20" }
+    ];
+    const r = reminderFor(services, "2026-08-05");
+    assert.equal(r.title, "Sophämtning imorgon");
+    assert.equal(r.body, "Torsdag 6 augusti töms Matavfall och Restavfall.");
+  });
+
+  it("Givet att ingenting töms imorgon, när schemat gås igenom, så blir det ingen påminnelse", () => {
+    assert.equal(reminderFor([fyrfack("Kärl 2", "2026-08-07")], "2026-08-05"), null);
+    assert.equal(reminderFor([], "2026-08-05"), null);
+  });
+
+  it("Givet veckoformat som 'v33', när måndagen är imorgon, så byggs påminnelsen även då", () => {
+    // Måndag v33 2026 = 2026-08-10; "imorgon" sett från söndag 9 augusti.
+    const r = reminderFor([{ WasteType: "Restavfall", NextWastePickup: "v33" }], "2026-08-09");
+    assert.equal(r.title, "Sophämtning imorgon");
+    assert.equal(r.body, "Måndag 10 augusti töms Restavfall.");
+  });
+});
