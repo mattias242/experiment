@@ -131,3 +131,11 @@ describe("Egenskap: påminnelsen kvällen före tömning", () => {
     assert.equal(r.body, "Måndag 10 augusti töms Restavfall.");
   });
 });
+
+describe("Egenskap: påminnelsetexten blir korrekt svenska", () => {
+  const { reminderFor } = require("../logic.js");
+  it("Givet en fraktion som slutar med punkt, när bodyn byggs, så blir det ingen dubbelpunkt", () => {
+    const r = reminderFor([{ WasteType: "Plastförp.", NextWastePickup: "2026-08-06" }], "2026-08-05");
+    assert.equal(r.body, "Torsdag 6 augusti töms Plastförp.");
+  });
+});

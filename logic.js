@@ -108,9 +108,10 @@
     const list = fractions.length > 1
       ? fractions.slice(0, -1).join(", ") + " och " + fractions[fractions.length - 1]
       : fractions[0];
+    // Fraktionsnamn som "Plastförp." har egen punkt – undvik dubbelpunkt.
     return {
       title: "Sophämtning imorgon",
-      body: when.charAt(0).toUpperCase() + when.slice(1) + " töms " + list + "."
+      body: (when.charAt(0).toUpperCase() + when.slice(1) + " töms " + list + ".").replace(/\.\.$/, ".")
     };
   }
 
