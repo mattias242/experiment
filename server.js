@@ -56,8 +56,12 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(path.join(__dirname, safe), (err, data) => {
     if (err) { res.writeHead(404).end("Not found"); return; }
     const type = safe.endsWith(".html") ? "text/html; charset=utf-8"
-      : safe.endsWith(".js") ? "text/javascript" : "application/octet-stream";
-    res.writeHead(200, { "Content-Type": type });
+      : safe.endsWith(".js") ? "text/javascript"
+      : safe.endsWith(".woff2") ? "font/woff2" : "application/octet-stream";
+    const headers = { "Content-Type": type };
+    // Typsnittet är versionerat i filnamnet och ändras inte – låt det cachas.
+    if (safe.endsWith(".woff2")) headers["Cache-Control"] = "public, max-age=31536000, immutable";
+    res.writeHead(200, headers);
     res.end(data);
   });
 });

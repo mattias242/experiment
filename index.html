@@ -1,285 +1,493 @@
+<!doctype html>
+<html lang="sv">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hämtschema – Stenungsunds kommun</title>
+<title>När töms mitt kärl? – Stenungsunds kommun</title>
+<meta name="description" content="Nästa hämtdag för fyrfackskärlen i Stenungsunds kommun – vilket kärl som töms och vad som ingår i facken.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#E7EAE8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1514" media="(prefers-color-scheme: dark)">
+<link rel="preload" href="familjen-grotesk.woff2" as="font" type="font/woff2" crossorigin>
 <script defer src="https://umami.neomeda.se/script.js" data-website-id="fb294f78-cb38-45e1-be8d-23d633bcefd4"></script>
 <style>
-  :root {
-    --bg: #F5F4EF;
-    --card: #FFFFFF;
-    --ink: #20261F;
-    --muted: #6B7268;
-    --line: #E0DFD6;
-    --k1: #3E5C76;
-    --k1-soft: #E7EDF3;
-    --k2: #57794E;
-    --k2-soft: #E9F0E6;
-    --warn-soft: #F6EEDF;
-    --warn-ink: #7A5C1E;
+  /* Display: Familjen Grotesk (SIL OFL). Självhostad – inga externa anrop,
+     inga tredjepartscookies. Saknas filen faller sidan tillbaka på systemsnittet. */
+  @font-face {
+    font-family: "Familjen Grotesk";
+    src: url("familjen-grotesk.woff2") format("woff2");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
   }
+
+  /* ---------- Tokens ----------
+     Alla textpar är kontrollerade mot WCAG 2.2: brödtext ≥ 4.5:1,
+     ramar och fokusmarkering ≥ 3:1 (1.4.3 och 1.4.11). */
+  :root {
+    color-scheme: light;
+    --ground: #E7EAE8;
+    --surface: #FFFFFF;
+    --ink: #131C1B;
+    --muted: #4E5855;
+    --rule: #7E8582;
+    --rule-soft: #D3D8D5;
+    --focus: #0B4F66;
+
+    --k1-text: #0E4B63;
+    --k1-fill: #0E4B63;
+    --k1-on-fill: #FFFFFF;
+    --k1-wash: #E1EDF2;
+    --k1-line: #3C7C95;
+
+    --k2-text: #6A4905;
+    --k2-fill: #E7AF2B;
+    --k2-on-fill: #1A1400;
+    --k2-wash: #FBF0D6;
+    --k2-line: #B2870F;
+
+    --shadow: 0 1px 2px rgba(19, 28, 27, 0.06), 0 8px 24px -16px rgba(19, 28, 27, 0.35);
+
+    --fs-eyebrow: 0.8125rem;
+    --fs-small: 0.9375rem;
+    --fs-body: 1.0625rem;
+    --fs-h2: 1.1875rem;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
+
+  /* Ett enda mörkt tema, delat av mediefrågan och den explicita växlingen.
+     @media-blocket kan inte återanvända en regel, därför upprepas listan. */
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #171B19;
-      --card: #1F2521;
-      --ink: #E7EAE4;
-      --muted: #98A094;
-      --line: #333B34;
-      --k1: #8FB0CC;
-      --k1-soft: #253440;
-      --k2: #9CC08F;
-      --k2-soft: #263626;
-      --warn-soft: #33301F;
-      --warn-ink: #D8BE7A;
+      --ground: #0F1514; --surface: #1A2220; --ink: #E9EDEA; --muted: #A2ACA8;
+      --rule: #6A7370; --rule-soft: #2C3532; --focus: #7FC7E4;
+      --k1-text: #8CC5DE; --k1-fill: #8CC5DE; --k1-on-fill: #06222E;
+      --k1-wash: #11313E; --k1-line: #4E869E;
+      --k2-text: #EFC463; --k2-fill: #E7AF2B; --k2-on-fill: #1A1400;
+      --k2-wash: #372D0C; --k2-line: #997414;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.9);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #171B19; --card: #1F2521; --ink: #E7EAE4; --muted: #98A094;
-    --line: #333B34; --k1: #8FB0CC; --k1-soft: #253440; --k2: #9CC08F;
-    --k2-soft: #263626; --warn-soft: #33301F; --warn-ink: #D8BE7A;
+    color-scheme: dark;
+    --ground: #0F1514; --surface: #1A2220; --ink: #E9EDEA; --muted: #A2ACA8;
+    --rule: #6A7370; --rule-soft: #2C3532; --focus: #7FC7E4;
+    --k1-text: #8CC5DE; --k1-fill: #8CC5DE; --k1-on-fill: #06222E;
+    --k1-wash: #11313E; --k1-line: #4E869E;
+    --k2-text: #EFC463; --k2-fill: #E7AF2B; --k2-on-fill: #1A1400;
+    --k2-wash: #372D0C; --k2-line: #997414;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.9);
   }
   :root[data-theme="light"] {
-    --bg: #F5F4EF; --card: #FFFFFF; --ink: #20261F; --muted: #6B7268;
-    --line: #E0DFD6; --k1: #3E5C76; --k1-soft: #E7EDF3; --k2: #57794E;
-    --k2-soft: #E9F0E6; --warn-soft: #F6EEDF; --warn-ink: #7A5C1E;
+    color-scheme: light;
+    --ground: #E7EAE8; --surface: #FFFFFF; --ink: #131C1B; --muted: #4E5855;
+    --rule: #7E8582; --rule-soft: #D3D8D5; --focus: #0B4F66;
+    --k1-text: #0E4B63; --k1-fill: #0E4B63; --k1-on-fill: #FFFFFF;
+    --k1-wash: #E1EDF2; --k1-line: #3C7C95;
+    --k2-text: #6A4905; --k2-fill: #E7AF2B; --k2-on-fill: #1A1400;
+    --k2-wash: #FBF0D6; --k2-line: #B2870F;
+    --shadow: 0 1px 2px rgba(19, 28, 27, 0.06), 0 8px 24px -16px rgba(19, 28, 27, 0.35);
   }
 
-  * { box-sizing: border-box; margin: 0; }
-  /* Egna display-regler (t.ex. .edit-row) slår annars ut hidden-attributet */
+  /* ---------- Grund ---------- */
+  *, *::before, *::after { box-sizing: border-box; }
+  * { margin: 0; }
+  /* Egna display-regler får annars slå ut hidden-attributet */
   [hidden] { display: none !important; }
+
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    background: var(--bg);
+    background: var(--ground);
     color: var(--ink);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.5;
-    padding: 1.5rem 1rem 3rem;
+    font-size: var(--fs-body);
+    line-height: 1.6;
+    padding: 1.75rem 1rem 4rem;
   }
-  main { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
 
-  header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
-  header p { color: var(--muted); font-size: 0.9rem; }
+  /* Synlig fokusmarkering på allt som går att nå med tangentbord (WCAG 2.4.7) */
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
 
-  .label {
+  /* ---------- Typografi ---------- */
+  .display {
+    font-family: "Familjen Grotesk", "Helvetica Neue", system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+  .eyebrow {
+    font-size: var(--fs-eyebrow);
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.09em;
-    font-size: 0.72rem;
-    font-weight: 600;
     color: var(--muted);
+    line-height: 1.4;
   }
 
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 1.25rem 1.4rem;
+  /* ---------- Sidhuvud ---------- */
+  .masthead { display: flex; flex-direction: column; gap: 0.35rem; }
+  .masthead h1 {
+    font-family: "Familjen Grotesk", "Helvetica Neue", system-ui, sans-serif;
+    font-size: clamp(1.6rem, 5.5vw, 2.1rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
   }
 
-  /* Address search */
-  .search-row { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
-  .search-row input {
-    flex: 1;
-    font: inherit;
-    color: inherit;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 0.55rem 0.8rem;
+  /* Sparad adress: alltid synlig, alltid utbytbar */
+  .whereami {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-radius: 12px;
   }
-  .search-row input:focus-visible,
-  .search-row button:focus-visible { outline: 2px solid var(--k1); outline-offset: 1px; }
-  .search-row button {
+  .whereami-value { font-weight: 600; margin-right: auto; }
+
+  /* ---------- Knappar och fält ---------- */
+  .btn {
     font: inherit;
     font-weight: 600;
-    color: var(--card);
-    background: var(--ink);
-    border: none;
-    border-radius: 8px;
-    padding: 0.55rem 1.1rem;
+    min-height: 2.75rem;
+    padding: 0.6rem 1.15rem;
+    border-radius: 10px;
     cursor: pointer;
   }
-  /* Ligger direkt i main; flex-gap sköter avståndet, men dras ihop mot kortet ovanför */
-  .status { margin-top: -0.5rem; font-size: 0.85rem; color: var(--muted); }
-  .status.live::before { content: "●"; color: var(--k2); margin-right: 0.35rem; }
-  .status.fallback::before { content: "●"; color: var(--warn-ink); margin-right: 0.35rem; }
+  .btn-primary { color: var(--surface); background: var(--ink); border: 1px solid var(--ink); }
+  .btn-quiet {
+    color: var(--ink); background: transparent;
+    border: 1px solid var(--rule);
+    font-size: var(--fs-small);
+    padding: 0.35rem 0.9rem;
+    min-height: 2.25rem;
+  }
+  .btn-quiet:hover { background: var(--ground); }
 
-  /* Hero: next pickup */
-  #next-card { border-width: 2px; }
-  #next-card.k1 { border-color: var(--k1); }
-  #next-card.k2 { border-color: var(--k2); }
-  .next-date {
-    font-size: clamp(1.8rem, 6vw, 2.6rem);
-    font-weight: 800;
-    letter-spacing: -0.02em;
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.35rem;
+  }
+  .panel-title {
+    font-family: "Familjen Grotesk", "Helvetica Neue", system-ui, sans-serif;
+    font-size: var(--fs-h2);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .field-label { display: block; font-weight: 600; margin-bottom: 0.45rem; }
+  .search-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .search-row input {
+    flex: 1 1 12rem;
+    font: inherit;
+    min-height: 2.75rem;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+  }
+  .search-row input[aria-invalid="true"] { border-color: var(--ink); border-width: 2px; }
+  .field-help { font-size: var(--fs-small); color: var(--muted); margin-top: 0.6rem; }
+
+  /* ---------- Statusrad ---------- */
+  .status {
+    position: relative;
+    padding-left: 1.05rem;
+    font-size: var(--fs-small);
+    color: var(--muted);
+  }
+  .status::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.55rem;
+    width: 0.5rem; height: 0.5rem;
+    border-radius: 50%;
+    background: var(--rule);
+  }
+  .status.live::before { background: var(--k1-line); }
+  .status.problem::before { background: var(--k2-line); }
+  .status-note { margin-top: 0.4rem; }
+  .status a { color: inherit; }
+
+  /* ---------- Nästa tömning ---------- */
+  .verdict { border-width: 2px; box-shadow: var(--shadow); padding: 1.35rem 1.35rem 1.5rem; }
+  .verdict.k1 { border-color: var(--k1-line); }
+  .verdict.k2 { border-color: var(--k2-line); }
+
+  .chip {
+    display: inline-block;
+    font-family: "Familjen Grotesk", "Helvetica Neue", system-ui, sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    padding: 0.25rem 0.85rem;
+    border-radius: 8px;
+    margin: 0.55rem 0 0.5rem;
+  }
+  .chip.k1 { background: var(--k1-fill); color: var(--k1-on-fill); border: 1px solid var(--k1-line); }
+  .chip.k2 { background: var(--k2-fill); color: var(--k2-on-fill); border: 1px solid var(--k2-line); }
+
+  .verdict-when {
+    font-size: clamp(2.1rem, 8.5vw, 3.1rem);
     font-variant-numeric: tabular-nums;
     text-wrap: balance;
-    margin: 0.15rem 0 0.3rem;
+    margin-bottom: 0.2rem;
   }
-  .countdown { font-size: 1.05rem; font-weight: 600; }
-  .badge {
-    display: inline-block;
-    padding: 0.25rem 0.7rem;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    margin-top: 0.6rem;
-  }
-  .badge.k1 { background: var(--k1-soft); color: var(--k1); }
-  .badge.k2 { background: var(--k2-soft); color: var(--k2); }
-  .also { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
-
-  /* Fractions */
-  .bins { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-  @media (max-width: 560px) { .bins { grid-template-columns: 1fr; } }
-  .bin h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.1rem; }
-  .bin .interval { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.85rem; }
-  .bin.k1 h2 { color: var(--k1); }
-  .bin.k2 h2 { color: var(--k2); }
-  .bin .label { margin-top: 0.75rem; }
-  .bin ul { list-style: none; padding: 0; margin: 0.3rem 0 0; }
-  .bin li { padding: 0.28rem 0; border-bottom: 1px dashed var(--line); font-size: 0.95rem; }
-  .bin li:last-child { border-bottom: none; }
-
-  .note { background: var(--warn-soft); border: none; color: var(--warn-ink); font-size: 0.9rem; }
-
-  /* Service list (live data) */
-  #services ul { list-style: none; padding: 0; margin: 0.4rem 0 0; }
-  #services li {
-    display: flex; justify-content: space-between; gap: 1rem;
-    padding: 0.35rem 0.2rem;
-    font-size: 0.92rem;
-    border-bottom: 1px dashed var(--line);
+  .verdict-date {
+    font-size: var(--fs-body);
+    color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
-  #services li:last-child { border-bottom: none; }
-  #services li span:last-child { white-space: nowrap; }
-
-  /* Träfflista när sökningen ger flera adresser */
-  #matches ul { list-style: none; padding: 0; margin: 0.5rem 0 0; }
-  #matches li { border-bottom: 1px dashed var(--line); }
-  #matches li:last-child { border-bottom: none; }
-  #matches button {
-    width: 100%;
-    text-align: left;
-    font: inherit;
-    color: inherit;
-    background: none;
-    border: none;
-    border-radius: 6px;
-    padding: 0.5rem 0.4rem;
-    cursor: pointer;
+  .verdict-action { font-weight: 700; margin-top: 0.45rem; }
+  .also {
+    margin-top: 1.1rem; padding-top: 0.9rem;
+    border-top: 1px solid var(--rule-soft);
+    font-size: var(--fs-small); color: var(--muted);
   }
-  #matches button:hover { background: var(--bg); }
-  #matches button:focus-visible { outline: 2px solid var(--k1); outline-offset: -2px; }
+  .verdict .eyebrow + .fyrfack { margin-top: 0.5rem; }
+  .verdict-contents { margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px solid var(--rule-soft); }
 
-  /* Byt adress längst ner */
-  .edit-row { display: flex; justify-content: center; }
-  .edit-row button {
-    font: inherit;
-    font-size: 0.9rem;
+  /* ---------- Signatur: kärlet sett uppifrån ----------
+     Insatsen ligger överst och är grundare, kärldelen underst och djupare –
+     samma ordning som när man öppnar locket. */
+  .fyrfack {
+    border: 2px solid var(--rule);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .fyrfack.k1 { border-color: var(--k1-line); background: var(--k1-line); }
+  .fyrfack.k2 { border-color: var(--k2-line); background: var(--k2-line); }
+
+  .fyrfack-rail {
+    font-size: var(--fs-eyebrow);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    padding: 0.3rem 0.75rem;
+    background: var(--surface);
     color: var(--muted);
-    background: none;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 0.5rem 1.1rem;
-    cursor: pointer;
   }
-  .edit-row button:hover { color: var(--ink); border-color: var(--muted); }
-  .edit-row button:focus-visible { outline: 2px solid var(--k1); outline-offset: 1px; }
+  .fyrfack-cells {
+    list-style: none; padding: 0; margin: 0; min-width: 0;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+  }
+  /* Långa ord som "glasförpackningar" måste få avstavas, annars spränger
+     facken layouten på smala skärmar (WCAG 1.4.10 Reflow, 320 px). */
+  .fyrfack-cells li {
+    background: var(--surface);
+    padding: 0.7rem 0.75rem;
+    font-size: var(--fs-small);
+    font-weight: 600;
+    display: flex; align-items: center;
+    min-height: 3rem;
+    min-width: 0;
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  .fyrfack .deep li { min-height: 4.25rem; }
+  .fyrfack.k1 .deep li, .fyrfack.k1 .shallow li { background: var(--k1-wash); color: var(--ink); }
+  .fyrfack.k2 .deep li, .fyrfack.k2 .shallow li { background: var(--k2-wash); color: var(--ink); }
 
-  footer { color: var(--muted); font-size: 0.8rem; }
+  /* ---------- Kärlöversikt ---------- */
+  /* Ett kärl per rad. Två i bredd skulle klämma facken så hårt att
+     "glasförpackningar" måste avstavas – orden är viktigare än symmetrin. */
+  .bins { display: grid; gap: 1.75rem; margin-top: 1rem; }
+  .bins > * { min-width: 0; }
+  .bin-name {
+    font-family: "Familjen Grotesk", "Helvetica Neue", system-ui, sans-serif;
+    font-size: 1.05rem; font-weight: 700;
+  }
+  .bin.k1 .bin-name { color: var(--k1-text); }
+  .bin.k2 .bin-name { color: var(--k2-text); }
+  .bin-interval { font-size: var(--fs-small); color: var(--muted); margin-bottom: 0.7rem; }
+
+  /* ---------- Farligt avfall ---------- */
+  .hazard { border-left: 4px solid var(--ink); }
+  .hazard p { margin-top: 0.5rem; font-size: var(--fs-small); }
+
+  /* ---------- Träfflista ---------- */
+  #matches { margin-top: 1.1rem; border-top: 1px solid var(--rule-soft); padding-top: 0.9rem; }
+  #match-list { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+  #match-list li + li { border-top: 1px solid var(--rule-soft); }
+  #match-list button {
+    width: 100%; text-align: left; font: inherit;
+    min-height: 2.75rem;
+    color: var(--ink); background: none; border: none;
+    border-radius: 8px; padding: 0.6rem 0.5rem; cursor: pointer;
+  }
+  #match-list button:hover { background: var(--ground); }
+
+  /* ---------- Alla tjänster ---------- */
+  .details { padding-top: 0.35rem; padding-bottom: 0.35rem; }
+  .details summary {
+    font-weight: 600; cursor: pointer;
+    padding: 0.35rem 0; min-height: 2.75rem;
+    display: flex; align-items: center; gap: 0.6rem;
+    list-style: none;
+  }
+  .details summary::-webkit-details-marker { display: none; }
+  .details summary::before {
+    content: ""; flex: none;
+    width: 0.5rem; height: 0.5rem;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(-45deg);
+    transition: transform 150ms ease;
+  }
+  .details[open] summary::before { transform: rotate(45deg); }
+  .details[open] { padding-bottom: 1rem; }
+  #service-list { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+  #service-list li {
+    display: flex; justify-content: space-between; gap: 1rem;
+    padding: 0.5rem 0.1rem;
+    font-size: var(--fs-small);
+    border-top: 1px solid var(--rule-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  #service-list li span:last-child { white-space: nowrap; color: var(--muted); }
+
+  footer { font-size: var(--fs-small); color: var(--muted); }
   footer a { color: inherit; }
-</style>
+  footer p + p { margin-top: 0.4rem; }
 
+  /* ---------- Rörelse: en enda inledande reveal ---------- */
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .verdict:not([hidden]) { animation: rise 260ms ease-out both; }
+  @media (prefers-reduced-motion: reduce) {
+    .verdict:not([hidden]) { animation: none; }
+    * { transition-duration: 0.01ms !important; }
+  }
+
+  /* ---------- Förstärkt kontrast och Windows högkontrastläge ---------- */
+  @media (prefers-contrast: more) {
+    :root { --rule-soft: var(--rule); --muted: var(--ink); }
+    .panel { border-width: 2px; }
+  }
+  @media (forced-colors: active) {
+    .chip, .fyrfack, .panel, .whereami { border: 1px solid CanvasText; }
+    .status::before { background: CanvasText; }
+  }
+</style>
+</head>
+<body>
 <main>
-  <header>
-    <h1>Renhållning – nästa hämtdag</h1>
-    <p>Stenungsunds kommun · fyrfackskärl</p>
+  <header class="masthead">
+    <p class="eyebrow">Stenungsunds kommun · fyrfackskärl</p>
+    <h1>När töms mitt kärl?</h1>
+    <div class="whereami" id="saved-bar" hidden>
+      <span class="eyebrow">Adress</span>
+      <span class="whereami-value" id="saved-address"></span>
+      <button class="btn btn-quiet" type="button" id="edit-btn">Ändra</button>
+    </div>
   </header>
 
-  <section class="card" id="address-card">
-    <label class="label" for="address">Din adress i Stenungsunds kommun</label>
-    <div class="search-row">
-      <input id="address" type="text" placeholder="T.ex. Storgatan 1" autocomplete="street-address"
-             aria-label="Adress att söka hämtschema för">
-      <button id="search-btn" type="button">Spara</button>
-    </div>
+  <section class="panel" id="address-card" aria-labelledby="address-heading">
+    <h2 class="panel-title" id="address-heading">Din adress</h2>
+    <form id="address-form" role="search" novalidate style="margin-top:0.85rem;">
+      <label class="field-label" for="address">Adress i Stenungsunds kommun</label>
+      <div class="search-row">
+        <input id="address" name="address" type="text" placeholder="T.ex. Storgatan 1"
+               autocomplete="street-address" autocapitalize="words" spellcheck="false"
+               enterkeyhint="search" aria-describedby="address-help">
+        <button class="btn btn-primary" type="submit" id="search-btn">Visa hämtdagar</button>
+      </div>
+      <p class="field-help" id="address-help">Adressen sparas bara i den här webbläsaren – den skickas aldrig vidare.</p>
+    </form>
     <div id="matches" hidden>
-      <span class="label">Välj rätt adress</span>
-      <ul id="match-list"></ul>
+      <h3 class="eyebrow" id="matches-heading">Välj rätt adress</h3>
+      <ul id="match-list" aria-labelledby="matches-heading"></ul>
     </div>
   </section>
 
-  <div class="status" id="status" role="status">Ange din adress så visas nästa hämtdag. Adressen sparas i den här webbläsaren.</div>
-
-  <section class="card" id="next-card" aria-live="polite" hidden>
-    <span class="label">Nästa hämtning</span>
-    <div class="next-date" id="next-date">–</div>
-    <div class="countdown" id="countdown"></div>
-    <span class="badge" id="next-badge" hidden></span>
-    <div id="next-fractions" style="margin-top:0.8rem; font-size:0.95rem;"></div>
-    <div class="also" id="also"></div>
-  </section>
-
-  <section class="card" id="services" hidden>
-    <span class="label">Alla tjänster på adressen</span>
-    <ul id="service-list"></ul>
-  </section>
-
-  <section class="card" id="bins-card">
-    <span class="label">Inför tömning – detta ingår i kärlen</span>
-    <div class="bins" style="margin-top:0.9rem;">
-      <div class="bin k1">
-        <h2>Kärl 1</h2>
-        <div class="interval">Töms var fjärde vecka</div>
-        <span class="label">Kärldel</span>
-        <ul>
-          <li>Restavfall</li>
-          <li>Plastförpackningar</li>
-        </ul>
-        <span class="label">Insats</span>
-        <ul>
-          <li>Tidningar</li>
-          <li>Metallförpackningar</li>
-        </ul>
-      </div>
-      <div class="bin k2">
-        <h2>Kärl 2</h2>
-        <div class="interval">Töms varannan vecka</div>
-        <span class="label">Kärldel</span>
-        <ul>
-          <li>Matavfall</li>
-          <li>Pappersförpackningar</li>
-        </ul>
-        <span class="label">Insats</span>
-        <ul>
-          <li>Ofärgade glasförpackningar</li>
-          <li>Färgade glasförpackningar</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="card note" id="hazard-card">
-    <strong>Farligt avfall-boxen</strong> (ljuskällor, småelektronik, småbatterier – ej litium)
-    förvaras inomhus och hängs på valfritt fyrfackskärl när den är minst halvfull.
-    Ta in boxen efter tömning. Litiumbatterier lämnas på återvinningscentralen Stora Höga eller Kläpp.
-  </section>
-
-  <div class="edit-row" id="edit-row" hidden>
-    <button id="edit-btn" type="button">Ändra adress</button>
+  <div class="status" id="status" role="status">
+    <p id="status-text">Skriv in din adress för att se nästa hämtdag.</p>
+    <div id="status-extra"></div>
   </div>
 
+  <section class="panel verdict" id="next-card" aria-labelledby="next-heading" hidden>
+    <h2 class="eyebrow" id="next-heading" tabindex="-1">Nästa tömning</h2>
+    <p><span class="chip" id="next-badge" hidden></span></p>
+    <p class="display verdict-when" id="countdown">–</p>
+    <p class="verdict-date" id="next-date"></p>
+    <p class="verdict-action" id="next-action" hidden></p>
+
+    <div class="verdict-contents">
+      <h3 class="eyebrow" id="contents-heading">Det här töms</h3>
+      <div id="next-fyrfack" style="margin-top:0.6rem;"></div>
+    </div>
+
+    <p class="also" id="also" hidden></p>
+  </section>
+
+  <section class="panel" id="bins-card" aria-labelledby="bins-heading">
+    <h2 class="panel-title" id="bins-heading">Så är kärlen sorterade</h2>
+    <div class="bins" id="bins-grid"></div>
+  </section>
+
+  <details class="panel details" id="services" hidden>
+    <summary>Alla tjänster på adressen</summary>
+    <ul id="service-list"></ul>
+  </details>
+
+  <section class="panel hazard" id="hazard-card" aria-labelledby="hazard-heading">
+    <h2 class="panel-title" id="hazard-heading">Farligt avfall-boxen</h2>
+    <p>
+      Ljuskällor, småelektronik och småbatterier – dock inte litiumbatterier. Boxen förvaras
+      inomhus och hängs på valfritt fyrfackskärl när den är minst halvfull. Ta in den igen
+      efter tömning. Litiumbatterier lämnas på återvinningscentralen i Stora Höga eller Kläpp.
+    </p>
+  </section>
+
   <footer>
-    Datumkälla: <a href="https://www.stenungsund.se/bygga-bo-och-miljo/avfall-och-atervinning/nar-toms-mitt-karl">kommunens tjänst "När töms mitt kärl?"</a>.
-    Datumen hämtas live vid varje besök – adressen sparas bara i din egen webbläsare.
-    Frågor: Kontaktcenter 0303-73 00 00 · kommun@stenungsund.se
+    <p>
+      Datumkälla:
+      <a href="https://www.stenungsund.se/bygga-bo-och-miljo/avfall-och-atervinning/nar-toms-mitt-karl">kommunens tjänst ”När töms mitt kärl?”</a>.
+      Datumen hämtas direkt från källan vid varje besök.
+    </p>
+    <p>Frågor: Kontaktcenter 0303-73 00 00 · <a href="mailto:kommun@stenungsund.se">kommun@stenungsund.se</a></p>
   </footer>
 </main>
 
 <script>
   const STORAGE_KEY = "hamtschema-adress";
-  const FRACTIONS = {
-    k1: "Restavfall · Plastförpackningar · Tidningar · Metallförpackningar",
-    k2: "Matavfall · Pappersförpackningar · Ofärgat glas · Färgat glas"
+
+  // Fyrfackskärlen i kommunen: två fack i insatsen (överst) och två i kärldelen.
+  const BINS = {
+    k1: {
+      name: "Kärl 1",
+      interval: "Töms var fjärde vecka",
+      insats: ["Tidningar", "Metallförpackningar"],
+      karldel: ["Restavfall", "Plastförpackningar"]
+    },
+    k2: {
+      name: "Kärl 2",
+      interval: "Töms varannan vecka",
+      insats: ["Ofärgade glasförpackningar", "Färgade glasförpackningar"],
+      karldel: ["Matavfall", "Pappersförpackningar"]
+    }
   };
+
   // Kommunens EDP FutureWeb-tjänst. Direktanrop fungerar bara om tjänsten
   // tillåter CORS; annars behövs proxyn i server.js (sökväg /api).
   const API_BASES = [
@@ -288,6 +496,7 @@
   ];
 
   const todayStr = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+  const el = id => document.getElementById(id);
 
   function daysBetween(fromStr, toStr) {
     return Math.round((Date.parse(toStr) - Date.parse(fromStr)) / 86400000);
@@ -327,16 +536,9 @@
     throw lastErr;
   }
 
-  // "hosted" = delad/publicerad sida (t.ex. artifact) vars säkerhetspolicy
-  // aldrig tillåter externa anrop – där är reservschemat det normala läget.
-  function runMode() {
-    if (location.protocol === "file:") return "file";
-    if (/^(localhost|127\.)/.test(location.hostname)) return "localhost";
-    return "hosted";
-  }
   function runHint() {
-    if (runMode() === "file") {
-      return "Du har öppnat filen direkt – starta appen med “node server.js” och öppna http://localhost:8080 för aktuella datum.";
+    if (location.protocol === "file:") {
+      return "Du har öppnat filen direkt – starta appen med ”node server.js” och öppna http://localhost:8080 för aktuella datum.";
     }
     return "Kontrollera serverns terminalfönster för felmeddelande från proxyn.";
   }
@@ -398,44 +600,110 @@
     return null;
   }
 
-  // ------- Rendering -------
-  const el = id => document.getElementById(id);
+  // ------- Signatur: kärlet uppifrån -------
+  // Två band – insatsen överst, kärldelen underst – med två fack i varje.
+  function buildFyrfack(binKey, idPrefix) {
+    const bin = BINS[binKey];
+    const wrap = document.createElement("div");
+    wrap.className = "fyrfack " + binKey;
 
-  function renderNext(next1, next2, sourceNote) {
+    const band = (klass, railText, railNote, items, id) => {
+      const rail = document.createElement("p");
+      rail.className = "fyrfack-rail";
+      rail.id = id;
+      rail.textContent = railText + " · " + railNote;
+      const ul = document.createElement("ul");
+      ul.className = "fyrfack-cells " + klass;
+      ul.setAttribute("aria-labelledby", id);
+      for (const item of items) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        ul.appendChild(li);
+      }
+      wrap.append(rail, ul);
+    };
+
+    band("shallow", "Insats", "överst", bin.insats, idPrefix + "-insats");
+    band("deep", "Kärldel", "underst", bin.karldel, idPrefix + "-karldel");
+    return wrap;
+  }
+
+  // Kärlöversikten visar båda kärlen tills ett av dem står i toppkortet –
+  // då räcker det andra, resten upprepar bara det som redan syns.
+  function renderBins(skipKey) {
+    const grid = el("bins-grid");
+    const keys = Object.keys(BINS).filter(k => k !== skipKey);
+    grid.textContent = "";
+    el("bins-heading").textContent = keys.length > 1 ? "Så är kärlen sorterade" : "Det andra kärlet";
+
+    for (const key of keys) {
+      const bin = BINS[key];
+      const box = document.createElement("div");
+      box.className = "bin " + key;
+      const name = document.createElement("h3");
+      name.className = "bin-name";
+      name.textContent = bin.name;
+      const interval = document.createElement("p");
+      interval.className = "bin-interval";
+      interval.textContent = bin.interval;
+      box.append(name, interval, buildFyrfack(key, "ref-" + key));
+      grid.appendChild(box);
+    }
+  }
+
+  // ------- Rendering -------
+  function renderNext(next1, next2) {
     const card = el("next-card");
     card.classList.remove("k1", "k2");
-    const badge = el("next-badge");
 
     let nextBin = null, nextDate = null;
     if (next1 && (!next2 || next1 <= next2)) { nextBin = "k1"; nextDate = next1; }
     else if (next2) { nextBin = "k2"; nextDate = next2; }
-
-    if (!nextDate) {
-      el("next-date").textContent = "Inga kommande tömningar hittades";
-      el("countdown").textContent = sourceNote || "";
-      badge.hidden = true;
-      el("next-fractions").textContent = "";
-      el("also").textContent = "";
-      return;
-    }
+    if (!nextDate) return false;
 
     const days = daysBetween(todayStr, nextDate);
     card.classList.add(nextBin);
-    el("next-date").textContent = formatLong(nextDate);
-    el("countdown").textContent =
-      days === 0 ? "Idag – ställ fram kärlet!" :
-      days === 1 ? "Imorgon – ställ fram kärlet ikväll" :
-      "Om " + days + " dagar";
+
+    const badge = el("next-badge");
     badge.hidden = false;
-    badge.textContent = nextBin === "k1" ? "Kärl 1" : "Kärl 2";
-    badge.className = "badge " + nextBin;
-    el("next-fractions").textContent = FRACTIONS[nextBin];
+    badge.className = "chip " + nextBin;
+    badge.textContent = BINS[nextBin].name;
+
+    el("countdown").textContent =
+      days === 0 ? "Töms idag" :
+      days === 1 ? "Töms imorgon" :
+      "Om " + days + " dagar";
+    el("next-date").textContent = formatLong(nextDate);
+
+    const action = el("next-action");
+    if (days === 0) {
+      action.textContent = "Kärlet ska stå framme vid tomtgränsen.";
+      action.hidden = false;
+    } else if (days === 1) {
+      action.textContent = "Ställ ut kärlet ikväll.";
+      action.hidden = false;
+    } else {
+      action.textContent = "";
+      action.hidden = true;
+    }
+
+    const fyrfack = el("next-fyrfack");
+    fyrfack.textContent = "";
+    fyrfack.appendChild(buildFyrfack(nextBin, "next"));
 
     const otherBin = nextBin === "k1" ? "k2" : "k1";
     const otherNext = nextBin === "k1" ? next2 : next1;
-    el("also").textContent = otherNext
-      ? "Därefter " + (otherBin === "k1" ? "Kärl 1" : "Kärl 2") + ": " + formatLong(otherNext).toLowerCase()
-      : "";
+    const also = el("also");
+    if (otherNext) {
+      also.textContent = "Därefter " + BINS[otherBin].name + ": " + formatLong(otherNext).toLowerCase() + ".";
+      also.hidden = false;
+    } else {
+      also.textContent = "";
+      also.hidden = true;
+    }
+
+    renderBins(nextBin);
+    return true;
   }
 
   function renderServices(services) {
@@ -465,11 +733,13 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = b;
-      btn.addEventListener("click", () => { hideMatches(); useBuilding(b); });
+      btn.addEventListener("click", () => { hideMatches(); useBuilding(b, true); });
       li.appendChild(btn);
       list.appendChild(li);
     }
     el("matches").hidden = false;
+    const first = list.querySelector("button");
+    if (first) first.focus();
   }
   function hideMatches() {
     el("matches").hidden = true;
@@ -477,49 +747,51 @@
   }
 
   // ------- Lägesväxling: adressformulär kontra resultat -------
-  function showResults() {
+  function showResults(building) {
     el("address-card").hidden = true;
-    el("edit-row").hidden = false;
+    el("saved-bar").hidden = false;
+    el("saved-address").textContent = building;
   }
   function showAddressForm(message) {
     el("address-card").hidden = false;
-    el("edit-row").hidden = true;
+    el("saved-bar").hidden = true;
     el("next-card").hidden = true;
     el("services").hidden = true;
     el("bins-card").hidden = false;
     el("hazard-card").hidden = false;
     hideMatches();
-    setStatus(message || "Ange din adress så visas nästa hämtdag. Adressen sparas i den här webbläsaren.");
+    renderBins(null);
+    setStatus(message || "Skriv in din adress för att se nästa hämtdag.");
   }
   function setStatus(text, kind) {
-    const status = el("status");
-    status.className = "status" + (kind ? " " + kind : "");
-    status.textContent = text;
+    el("status").className = "status" + (kind ? " " + kind : "");
+    el("status-text").textContent = text;
+    el("status-extra").textContent = "";
   }
+  function addStatusNote(node) {
+    const wrap = document.createElement("p");
+    wrap.className = "status-note";
+    if (typeof node === "string") wrap.textContent = node; else wrap.append(node);
+    el("status-extra").appendChild(wrap);
+  }
+
   // Alla adresser i kommunen har inte fyrfack – en del har separata kärl för
   // restavfall och matavfall. Den här sidan täcker bara fyrfackssystemet, så de
   // hänvisas vidare i stället för att få ett obegripligt fel.
   function showNoFyrfack(building, services) {
-    setStatus("”" + building + "” har inte fyrfackskärl.", "fallback");
-    const status = el("status");
-
-    const what = document.createElement("div");
-    what.style.marginTop = "0.4rem";
+    setStatus("”" + building + "” har inte fyrfackskärl.", "problem");
     const kinds = [...new Set(services.map(s => s.WasteType).filter(Boolean))];
-    what.textContent = kinds.length
+    addStatusNote(kinds.length
       ? "Adressen har i stället: " + kinds.join(", ") + "."
-      : "Adressen har ett annat abonnemang.";
-    status.appendChild(what);
+      : "Adressen har ett annat abonnemang.");
 
-    const where = document.createElement("div");
-    where.style.marginTop = "0.3rem";
+    const where = document.createElement("span");
     where.append("Den här sidan visar bara fyrfacksschema. Se ");
     const a = document.createElement("a");
     a.href = "https://www.stenungsund.se/bygga-bo-och-miljo/avfall-och-atervinning/nar-toms-mitt-karl";
     a.textContent = "kommunens egen tjänst";
-    a.style.color = "inherit";
     where.append(a, " för din adress.");
-    status.appendChild(where);
+    addStatusNote(where);
 
     el("next-card").hidden = true;
     el("services").hidden = true;
@@ -528,31 +800,27 @@
   }
 
   function showError(reason, showDiagnostics) {
-    setStatus(reason, "fallback");
+    setStatus(reason, "problem");
     if (showDiagnostics) {
-      const hint = document.createElement("div");
-      hint.style.marginTop = "0.4rem";
-      hint.textContent = runHint();
-      el("status").appendChild(hint);
-      if (diagnostics.length) {
-        const detail = document.createElement("div");
-        detail.style.marginTop = "0.3rem";
-        detail.style.fontSize = "0.8rem";
-        detail.textContent = "Fel: " + diagnostics.join(" · ");
-        el("status").appendChild(detail);
-      }
+      addStatusNote(runHint());
+      if (diagnostics.length) addStatusNote("Fel: " + diagnostics.join(" · "));
     }
     el("next-card").hidden = true;
     el("services").hidden = true;
+    renderBins(null);
   }
 
   // ------- Sökning och hämtning -------
   // Steg 1: slå upp adressen. En träff → gå vidare direkt, flera → låt användaren välja.
   async function lookup(addressText) {
+    const input = el("address");
     if (!addressText) {
+      input.setAttribute("aria-invalid", "true");
       showAddressForm("Skriv in en adress först.");
+      input.focus();
       return;
     }
+    input.removeAttribute("aria-invalid");
     el("address-card").hidden = false;
     hideMatches();
     setStatus("Söker adressen …");
@@ -560,9 +828,9 @@
     try {
       const buildings = await searchAddress(addressText);
       if (buildings.length === 1) {
-        await useBuilding(buildings[0]);
+        await useBuilding(buildings[0], true);
       } else {
-        setStatus(buildings.length + " adresser matchar ”" + addressText + "”.");
+        setStatus(buildings.length + " adresser matchar ”" + addressText + "”. Välj en i listan.");
         renderMatches(buildings);
       }
     } catch (err) {
@@ -571,7 +839,7 @@
   }
 
   // Steg 2: hämta schemat för en bekräftad adress och spara den.
-  async function useBuilding(building) {
+  async function useBuilding(building, moveFocus) {
     setStatus("Hämtar aktuella datum …");
     try {
       const services = await getSchedule(building);
@@ -594,10 +862,13 @@
       el("hazard-card").hidden = false;
       el("next-card").hidden = false;
       renderNext(next1, next2);
-      setStatus("Aktuella datum från stenungsund.se för: " + building, "live");
+      setStatus("Aktuella datum från stenungsund.se.", "live");
       try { localStorage.setItem(STORAGE_KEY, building); } catch (e) {}
       el("address").value = building;
-      showResults();
+      showResults(building);
+      // Flytta fokus till svaret först när besökaren själv har sökt –
+      // vid sidladdning vore det desorienterande.
+      if (moveFocus) el("next-heading").focus();
     } catch (err) {
       reportLookupError(err, building);
     }
@@ -607,28 +878,35 @@
     const notFound = err && /hittades inte|Inga tjänster/.test(err.message || "");
     if (notFound) {
       showError("”" + addressText + "” – " + err.message + ". Kontrollera stavningen.");
+      el("address").setAttribute("aria-invalid", "true");
     } else {
       showError("Kunde inte nå kommunens tjänst just nu. Försök igen om en stund.", true);
     }
   }
 
   // ------- Init -------
-  // Sparad adress → hämta direkt. Ingen sparad adress → be om en.
-  el("search-btn").addEventListener("click", () => lookup(el("address").value.trim()));
-  el("address").addEventListener("keydown", e => { if (e.key === "Enter") lookup(el("address").value.trim()); });
+  el("address-form").addEventListener("submit", e => {
+    e.preventDefault();
+    lookup(el("address").value.trim());
+  });
   el("edit-btn").addEventListener("click", () => {
-    showAddressForm("Ange en ny adress. Den ersätter den sparade.");
+    showAddressForm("Skriv in en ny adress. Den ersätter den sparade.");
     el("address").focus();
     el("address").select();
   });
 
+  renderBins(null);
+
+  // Sparad adress → hämta direkt. Ingen sparad adress → be om en.
   let saved = null;
   try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) {}
   if (saved) {
     el("address").value = saved;
-    showResults();
-    useBuilding(saved);
+    showResults(saved);
+    useBuilding(saved, false);
   } else {
     showAddressForm();
   }
 </script>
+</body>
+</html>
