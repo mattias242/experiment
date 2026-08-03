@@ -1,0 +1,533 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hämtschema – Stenungsunds kommun</title>
+<style>
+  :root {
+    --bg: #F5F4EF;
+    --card: #FFFFFF;
+    --ink: #20261F;
+    --muted: #6B7268;
+    --line: #E0DFD6;
+    --k1: #3E5C76;
+    --k1-soft: #E7EDF3;
+    --k2: #57794E;
+    --k2-soft: #E9F0E6;
+    --warn-soft: #F6EEDF;
+    --warn-ink: #7A5C1E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171B19;
+      --card: #1F2521;
+      --ink: #E7EAE4;
+      --muted: #98A094;
+      --line: #333B34;
+      --k1: #8FB0CC;
+      --k1-soft: #253440;
+      --k2: #9CC08F;
+      --k2-soft: #263626;
+      --warn-soft: #33301F;
+      --warn-ink: #D8BE7A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171B19; --card: #1F2521; --ink: #E7EAE4; --muted: #98A094;
+    --line: #333B34; --k1: #8FB0CC; --k1-soft: #253440; --k2: #9CC08F;
+    --k2-soft: #263626; --warn-soft: #33301F; --warn-ink: #D8BE7A;
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4EF; --card: #FFFFFF; --ink: #20261F; --muted: #6B7268;
+    --line: #E0DFD6; --k1: #3E5C76; --k1-soft: #E7EDF3; --k2: #57794E;
+    --k2-soft: #E9F0E6; --warn-soft: #F6EEDF; --warn-ink: #7A5C1E;
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    padding: 1.5rem 1rem 3rem;
+  }
+  main { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
+
+  header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
+  header p { color: var(--muted); font-size: 0.9rem; }
+
+  .label {
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.25rem 1.4rem;
+  }
+
+  /* Address search */
+  .search-row { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+  .search-row input {
+    flex: 1;
+    font: inherit;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.55rem 0.8rem;
+  }
+  .search-row input:focus-visible,
+  .search-row button:focus-visible { outline: 2px solid var(--k1); outline-offset: 1px; }
+  .search-row button {
+    font: inherit;
+    font-weight: 600;
+    color: var(--card);
+    background: var(--ink);
+    border: none;
+    border-radius: 8px;
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+  }
+  .status { margin-top: 0.6rem; font-size: 0.85rem; color: var(--muted); }
+  .status.live::before { content: "●"; color: var(--k2); margin-right: 0.35rem; }
+  .status.fallback::before { content: "●"; color: var(--warn-ink); margin-right: 0.35rem; }
+
+  /* Hero: next pickup */
+  #next-card { border-width: 2px; }
+  #next-card.k1 { border-color: var(--k1); }
+  #next-card.k2 { border-color: var(--k2); }
+  .next-date {
+    font-size: clamp(1.8rem, 6vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    text-wrap: balance;
+    margin: 0.15rem 0 0.3rem;
+  }
+  .countdown { font-size: 1.05rem; font-weight: 600; }
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-top: 0.6rem;
+  }
+  .badge.k1 { background: var(--k1-soft); color: var(--k1); }
+  .badge.k2 { background: var(--k2-soft); color: var(--k2); }
+  .also { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+
+  /* Fractions */
+  .bins { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  @media (max-width: 560px) { .bins { grid-template-columns: 1fr; } }
+  .bin h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.1rem; }
+  .bin .interval { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.85rem; }
+  .bin.k1 h2 { color: var(--k1); }
+  .bin.k2 h2 { color: var(--k2); }
+  .bin .label { margin-top: 0.75rem; }
+  .bin ul { list-style: none; padding: 0; margin: 0.3rem 0 0; }
+  .bin li { padding: 0.28rem 0; border-bottom: 1px dashed var(--line); font-size: 0.95rem; }
+  .bin li:last-child { border-bottom: none; }
+
+  .note { background: var(--warn-soft); border: none; color: var(--warn-ink); font-size: 0.9rem; }
+
+  /* Service list (live data) */
+  #services ul { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+  #services li {
+    display: flex; justify-content: space-between; gap: 1rem;
+    padding: 0.35rem 0.2rem;
+    font-size: 0.92rem;
+    border-bottom: 1px dashed var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+  #services li:last-child { border-bottom: none; }
+  #services li span:last-child { white-space: nowrap; }
+
+  /* Schedule */
+  .sched { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 0.9rem; }
+  @media (max-width: 560px) { .sched { grid-template-columns: 1fr; } }
+  .sched ul { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+  .sched li {
+    display: flex; justify-content: space-between;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+    border-radius: 6px;
+  }
+  .sched li.past { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+  .sched li.is-next { font-weight: 700; }
+  .sched li.is-next.k1 { background: var(--k1-soft); color: var(--k1); }
+  .sched li.is-next.k2 { background: var(--k2-soft); color: var(--k2); }
+
+  footer { color: var(--muted); font-size: 0.8rem; }
+  footer a { color: inherit; }
+</style>
+
+<main>
+  <header>
+    <h1>Renhållning – nästa hämtdag</h1>
+    <p>Stenungsunds kommun · fyrfackskärl</p>
+  </header>
+
+  <section class="card">
+    <label class="label" for="address">Adress</label>
+    <div class="search-row">
+      <input id="address" type="text" value="Näs Byväg 7" autocomplete="street-address"
+             aria-label="Adress att söka hämtschema för">
+      <button id="search-btn" type="button">Hämta datum</button>
+    </div>
+    <div class="status" id="status">Söker aktuella datum …</div>
+  </section>
+
+  <section class="card" id="next-card" aria-live="polite">
+    <span class="label">Nästa hämtning</span>
+    <div class="next-date" id="next-date">–</div>
+    <div class="countdown" id="countdown"></div>
+    <span class="badge" id="next-badge" hidden></span>
+    <div id="next-fractions" style="margin-top:0.8rem; font-size:0.95rem;"></div>
+    <div class="also" id="also"></div>
+  </section>
+
+  <section class="card" id="services" hidden>
+    <span class="label">Alla tjänster på adressen</span>
+    <ul id="service-list"></ul>
+  </section>
+
+  <section class="card">
+    <span class="label">Inför tömning – detta ingår i kärlen</span>
+    <div class="bins" style="margin-top:0.9rem;">
+      <div class="bin k1">
+        <h2>Kärl 1</h2>
+        <div class="interval">Töms var fjärde vecka</div>
+        <span class="label">Kärldel</span>
+        <ul>
+          <li>Restavfall</li>
+          <li>Plastförpackningar</li>
+        </ul>
+        <span class="label">Insats</span>
+        <ul>
+          <li>Tidningar</li>
+          <li>Metallförpackningar</li>
+        </ul>
+      </div>
+      <div class="bin k2">
+        <h2>Kärl 2</h2>
+        <div class="interval">Töms varannan vecka</div>
+        <span class="label">Kärldel</span>
+        <ul>
+          <li>Matavfall</li>
+          <li>Pappersförpackningar</li>
+        </ul>
+        <span class="label">Insats</span>
+        <ul>
+          <li>Ofärgade glasförpackningar</li>
+          <li>Färgade glasförpackningar</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="card note">
+    <strong>Farligt avfall-boxen</strong> (ljuskällor, småelektronik, småbatterier – ej litium)
+    förvaras inomhus och hängs på valfritt fyrfackskärl när den är minst halvfull.
+    Ta in boxen efter tömning. Litiumbatterier lämnas på återvinningscentralen Stora Höga eller Kläpp.
+  </section>
+
+  <section class="card" id="offline-sched">
+    <span class="label">Inlagt schema 2026 – Näs Byväg 7</span>
+    <div class="sched">
+      <div>
+        <span class="label" style="color:var(--k1);">Kärl 1</span>
+        <ul id="list1"></ul>
+      </div>
+      <div>
+        <span class="label" style="color:var(--k2);">Kärl 2</span>
+        <ul id="list2"></ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Datumkälla: <a href="https://www.stenungsund.se/bygga-bo-och-miljo/avfall-och-atervinning/nar-toms-mitt-karl">kommunens tjänst "När töms mitt kärl?"</a>
+    med kommunens hämtschema-PDF som reserv. Frågor: Kontaktcenter 0303-73 00 00 · kommun@stenungsund.se
+  </footer>
+</main>
+
+<script>
+  // ------- Inlagt schema (reserv när webbtjänsten inte kan nås) -------
+  const SCHEDULE = {
+    k1: ["2026-08-05","2026-09-02","2026-09-30","2026-10-28","2026-11-25","2026-12-22"],
+    k2: ["2026-08-13","2026-08-27","2026-09-10","2026-09-24","2026-10-08","2026-10-22",
+         "2026-11-05","2026-11-19","2026-12-03","2026-12-17","2026-12-30"]
+  };
+  const FRACTIONS = {
+    k1: "Restavfall · Plastförpackningar · Tidningar · Metallförpackningar",
+    k2: "Matavfall · Pappersförpackningar · Ofärgat glas · Färgat glas"
+  };
+  // Kommunens EDP FutureWeb-tjänst. Direktanrop fungerar bara om tjänsten
+  // tillåter CORS; annars behövs proxyn i server.js (sökväg /api).
+  const API_BASES = [
+    "/api",
+    "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup"
+  ];
+
+  const todayStr = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+
+  function daysBetween(fromStr, toStr) {
+    return Math.round((Date.parse(toStr) - Date.parse(fromStr)) / 86400000);
+  }
+  function formatLong(dateStr) {
+    const d = new Date(dateStr + "T12:00:00");
+    const s = d.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  function formatShort(dateStr) {
+    const d = new Date(dateStr + "T12:00:00");
+    return d.toLocaleDateString("sv-SE", { weekday: "short", day: "numeric", month: "short" });
+  }
+
+  // ------- Live-hämtning från kommunens tjänst -------
+  const diagnostics = [];
+  async function apiFetch(endpoint, options) {
+    let lastErr;
+    for (const base of API_BASES) {
+      const label = base === "/api" ? "via server.js-proxyn" : "direkt mot kommunen";
+      try {
+        const res = await fetch(base + "/" + endpoint, options);
+        if (!res.ok) {
+          let detail = "HTTP " + res.status;
+          try {
+            const errBody = await res.json();
+            if (errBody && errBody.detail) detail += " – " + errBody.detail;
+          } catch (e) {}
+          throw new Error(detail);
+        }
+        return await res.json();
+      } catch (err) {
+        diagnostics.push(label + ": " + (err.message || err.name));
+        lastErr = err;
+      }
+    }
+    throw lastErr;
+  }
+
+  function runHint() {
+    if (location.protocol === "file:") {
+      return "Du har öppnat filen direkt – starta appen med “node server.js” och öppna http://localhost:8080 för aktuella datum.";
+    }
+    if (!/^(localhost|127\.)/.test(location.hostname)) {
+      return "Den här sidan körs på en server som inte tillåter externa anrop – kör “node server.js” lokalt för aktuella datum.";
+    }
+    return "Kontrollera serverns terminalfönster för felmeddelande från proxyn.";
+  }
+
+  async function searchAddress(text) {
+    const data = await apiFetch("SearchAdress", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "searchText=" + encodeURIComponent(text)
+    });
+    if (!data || data.Succeeded === false || !Array.isArray(data.Buildings) || data.Buildings.length === 0) {
+      throw new Error("Adressen hittades inte");
+    }
+    return data.Buildings[0];
+  }
+
+  async function getSchedule(building) {
+    const data = await apiFetch("GetWastePickupSchedule?address=" + encodeURIComponent(building), { method: "GET" });
+    const services = data && (data.RhServices || data.rhServices);
+    if (!Array.isArray(services) || services.length === 0) throw new Error("Inga tjänster på adressen");
+    return services;
+  }
+
+  // "2026-08-05", "5 aug 2026", "v32" / "Vecka 32" → ISO-datum (måndag för veckoformat)
+  function parsePickupDate(raw) {
+    if (!raw) return null;
+    const s = String(raw).trim();
+    const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return iso[0];
+    const week = s.match(/^[Vv](?:ecka)?\.?\s*(\d{1,2})(?:\s+(\d{4}))?$/);
+    if (week) {
+      const year = week[2] ? parseInt(week[2], 10) : parseInt(todayStr.slice(0, 4), 10);
+      const simple = new Date(Date.UTC(year, 0, 4));
+      const monday = new Date(simple);
+      monday.setUTCDate(simple.getUTCDate() - ((simple.getUTCDay() + 6) % 7) + (parseInt(week[1], 10) - 1) * 7);
+      return monday.toISOString().slice(0, 10);
+    }
+    const months = { jan:0, feb:1, mar:2, apr:3, maj:4, jun:5, jul:6, aug:7, sep:8, okt:9, nov:10, dec:11 };
+    const sv = s.toLowerCase().match(/(\d{1,2})\s+([a-zå]{3})[a-zå]*\s+(\d{4})/);
+    if (sv && months[sv[2]] !== undefined) {
+      const d = new Date(Date.UTC(parseInt(sv[3], 10), months[sv[2]], parseInt(sv[1], 10)));
+      return d.toISOString().slice(0, 10);
+    }
+    return null;
+  }
+
+  // BinType är enligt EDP:s API-dokumentation ett objekt {Code, Size, Unit, ContainerType}
+  function binTypeText(b) {
+    if (!b) return "";
+    if (typeof b === "string") return b;
+    return [b.ContainerType, b.Code, b.Size && b.Unit ? b.Size + " " + b.Unit : ""].filter(Boolean).join(" ");
+  }
+
+  function classifyBin(service) {
+    const text = ((service.WasteType || "") + " " + binTypeText(service.BinType) + " " +
+                  (service.Fee && service.Fee.Description || "")).toLowerCase();
+    if (/k[äa]rl\s*1|fni\s*1|fyrfack\s*1/.test(text)) return "k1";
+    if (/k[äa]rl\s*2|fni\s*2|fyrfack\s*2/.test(text)) return "k2";
+    return null;
+  }
+
+  // ------- Rendering -------
+  const el = id => document.getElementById(id);
+
+  function renderNext(next1, next2, sourceNote) {
+    const card = el("next-card");
+    card.classList.remove("k1", "k2");
+    const badge = el("next-badge");
+
+    let nextBin = null, nextDate = null;
+    if (next1 && (!next2 || next1 <= next2)) { nextBin = "k1"; nextDate = next1; }
+    else if (next2) { nextBin = "k2"; nextDate = next2; }
+
+    if (!nextDate) {
+      el("next-date").textContent = "Inga kommande tömningar hittades";
+      el("countdown").textContent = sourceNote || "";
+      badge.hidden = true;
+      el("next-fractions").textContent = "";
+      el("also").textContent = "";
+      return;
+    }
+
+    const days = daysBetween(todayStr, nextDate);
+    card.classList.add(nextBin);
+    el("next-date").textContent = formatLong(nextDate);
+    el("countdown").textContent =
+      days === 0 ? "Idag – ställ fram kärlet!" :
+      days === 1 ? "Imorgon – ställ fram kärlet ikväll" :
+      "Om " + days + " dagar";
+    badge.hidden = false;
+    badge.textContent = nextBin === "k1" ? "Kärl 1" : "Kärl 2";
+    badge.className = "badge " + nextBin;
+    el("next-fractions").textContent = FRACTIONS[nextBin];
+
+    const otherBin = nextBin === "k1" ? "k2" : "k1";
+    const otherNext = nextBin === "k1" ? next2 : next1;
+    el("also").textContent = otherNext
+      ? "Därefter " + (otherBin === "k1" ? "Kärl 1" : "Kärl 2") + ": " + formatLong(otherNext).toLowerCase()
+      : "";
+  }
+
+  function renderServices(services) {
+    const list = el("service-list");
+    list.textContent = "";
+    for (const s of services) {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = [s.WasteType, s.WastePickupFrequency || binTypeText(s.BinType)]
+        .filter(Boolean).join(" · ") || "Tjänst";
+      const date = document.createElement("span");
+      const parsed = parsePickupDate(s.NextWastePickup);
+      date.textContent = parsed ? formatShort(parsed) : (s.NextWastePickup || "–");
+      li.append(name, date);
+      list.appendChild(li);
+    }
+    el("services").hidden = services.length === 0;
+  }
+
+  function renderOfflineLists() {
+    const nextOf = ds => ds.find(d => d >= todayStr) || null;
+    renderListInto(el("list1"), SCHEDULE.k1, "k1", nextOf(SCHEDULE.k1));
+    renderListInto(el("list2"), SCHEDULE.k2, "k2", nextOf(SCHEDULE.k2));
+  }
+  function renderListInto(listEl, dates, binClass, nextForBin) {
+    listEl.textContent = "";
+    for (const d of dates) {
+      const li = document.createElement("li");
+      const day = document.createElement("span");
+      day.textContent = formatShort(d);
+      const iso = document.createElement("span");
+      iso.textContent = d;
+      li.append(day, iso);
+      if (d < todayStr) li.classList.add("past");
+      if (d === nextForBin) li.classList.add("is-next", binClass);
+      listEl.appendChild(li);
+    }
+  }
+
+  function useFallback(reason, showDiagnostics) {
+    const nextOf = ds => ds.find(d => d >= todayStr) || null;
+    const n1 = nextOf(SCHEDULE.k1), n2 = nextOf(SCHEDULE.k2);
+    const status = el("status");
+    status.className = "status fallback";
+    status.textContent = reason + " Visar inlagt schema för Näs Byväg 7 (aug–dec 2026).";
+    if (showDiagnostics) {
+      const hint = document.createElement("div");
+      hint.style.marginTop = "0.4rem";
+      hint.textContent = runHint();
+      status.appendChild(hint);
+      if (diagnostics.length) {
+        const detail = document.createElement("div");
+        detail.style.marginTop = "0.3rem";
+        detail.style.fontSize = "0.8rem";
+        detail.textContent = "Fel: " + diagnostics.join(" · ");
+        status.appendChild(detail);
+      }
+    }
+    el("services").hidden = true;
+    if (!n1 && !n2) {
+      renderNext(null, null, "Schemat är slut – hämta 2027 års schema från kommunen.");
+    } else {
+      renderNext(n1, n2);
+    }
+  }
+
+  async function lookup(addressText) {
+    const status = el("status");
+    status.className = "status";
+    status.textContent = "Söker aktuella datum …";
+    diagnostics.length = 0;
+    try {
+      const building = await searchAddress(addressText);
+      const services = await getSchedule(building);
+      let next1 = null, next2 = null;
+      for (const s of services) {
+        const bin = classifyBin(s);
+        const date = parsePickupDate(s.NextWastePickup);
+        if (!bin || !date) continue;
+        if (bin === "k1" && (!next1 || date < next1)) next1 = date;
+        if (bin === "k2" && (!next2 || date < next2)) next2 = date;
+      }
+      renderServices(services);
+      if (!next1 && !next2) {
+        useFallback("Tjänsten svarade men inga kärl 1/2-datum kunde tolkas.");
+        return;
+      }
+      status.className = "status live";
+      status.textContent = "Aktuella datum från stenungsund.se för: " + building;
+      renderNext(next1, next2);
+      try { localStorage.setItem("hamtschema-adress", addressText); } catch (e) {}
+    } catch (err) {
+      const notFound = err && /hittades inte|Inga tjänster/.test(err.message || "");
+      if (notFound) {
+        useFallback("”" + addressText + "” – " + err.message + ".");
+      } else {
+        useFallback("Kunde inte nå kommunens tjänst härifrån.", true);
+      }
+    }
+  }
+
+  // ------- Init -------
+  renderOfflineLists();
+  try {
+    const saved = localStorage.getItem("hamtschema-adress");
+    if (saved) el("address").value = saved;
+  } catch (e) {}
+  el("search-btn").addEventListener("click", () => lookup(el("address").value.trim()));
+  el("address").addEventListener("keydown", e => { if (e.key === "Enter") lookup(el("address").value.trim()); });
+  lookup(el("address").value.trim());
+</script>
