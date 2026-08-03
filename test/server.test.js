@@ -73,3 +73,88 @@ describe("Egenskap: bara appens egna filer exponeras", () => {
     }
   });
 });
+
+describe("Egenskap: proxyn vidarebefordrar bara kända kommun-anrop", () => {
+  let server;
+  const calls = [];
+  const fetchStub = async (url, opts) => {
+    calls.push({ url, opts });
+    return new Response('{"Succeeded":true}', {
+      status: 200, headers: { "Content-Type": "application/json" }
+    });
+  };
+  before(async () => { server = await startServer({ fetchImpl: fetchStub }); });
+  after(() => server.close());
+
+  it("Givet en adress-sökning, när den skickas till /api/<kommun>/SearchAdress, så vidarebefordras den till kommunens tjänst", async () => {
+    calls.length = 0;
+    const res = await fetch(base(server) + "/api/herrljunga-vargarda/SearchAdress", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "searchText=Storgatan"
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { Succeeded: true });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup/SearchAdress");
+    assert.equal(calls[0].opts.body, "searchText=Storgatan");
+  });
+
+  it("Givet en äldre klient utan kommun i sökvägen, när den anropar /api/SearchAdress, så antas Stenungsund", async () => {
+    calls.length = 0;
+    await fetch(base(server) + "/api/SearchAdress", { method: "POST", body: "searchText=x" });
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /^https:\/\/futureweb\.stenungsund\.se\//);
+  });
+
+  it("Givet en okänd kommun eller okänt endpoint, när det anropas, så blir svaret 404 utan att något vidarebefordras", async () => {
+    calls.length = 0;
+    for (const p of ["/api/finnsinte/SearchAdress", "/api/stenungsund/DeleteEverything"]) {
+      const res = await fetch(base(server) + p);
+      assert.equal(res.status, 404, p);
+    }
+    assert.equal(calls.length, 0);
+  });
+
+  it("Givet en angripare, när hen använder prototypnycklar som kommun, så blir svaret 404", async () => {
+    calls.length = 0;
+    for (const key of ["__proto__", "constructor", "hasOwnProperty"]) {
+      const res = await fetch(base(server) + `/api/${key}/SearchAdress`);
+      assert.equal(res.status, 404, key + " ska inte slå upp något");
+    }
+    assert.equal(calls.length, 0);
+  });
+
+  it("Givet extra sökvägssegment efter endpointet, när det anropas, så blir svaret 404", async () => {
+    calls.length = 0;
+    const res = await fetch(base(server) + "/api/stenungsund/SearchAdress/extra");
+    assert.equal(res.status, 404);
+    assert.equal(calls.length, 0);
+  });
+
+  it("Givet andra HTTP-metoder än GET och POST, när de används mot proxyn, så blir svaret 405", async () => {
+    calls.length = 0;
+    for (const method of ["PUT", "DELETE", "PATCH"]) {
+      const res = await fetch(base(server) + "/api/stenungsund/SearchAdress", { method });
+      assert.equal(res.status, 405, method + " ska vägras");
+    }
+    assert.equal(calls.length, 0);
+  });
+
+  it("Givet en orimligt stor request-body, när den skickas, så avvisas den med 413", async () => {
+    calls.length = 0;
+    const res = await fetch(base(server) + "/api/stenungsund/SearchAdress", {
+      method: "POST",
+      body: "searchText=" + "x".repeat(64 * 1024)
+    });
+    assert.equal(res.status, 413);
+    assert.equal(calls.length, 0);
+  });
+
+  it("Givet en hängande kommun-tjänst, när proxyn anropar den, så finns en timeout-signal som avbryter", async () => {
+    calls.length = 0;
+    await fetch(base(server) + "/api/stenungsund/SearchAdress", { method: "POST", body: "searchText=x" });
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].opts.signal instanceof AbortSignal, "fetch ska få en AbortSignal");
+  });
+});

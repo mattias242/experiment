@@ -27,6 +27,8 @@ const PROVIDERS = {
 };
 const PORT = process.env.PORT || 8080;
 const ALLOWED = new Set(["SearchAdress", "GetWastePickupSchedule"]);
+const MAX_BODY = 16 * 1024;
+const UPSTREAM_TIMEOUT_MS = 15000;
 
 // Explicit lista över det som får serveras – allt annat (inklusive den här
 // filen) ger 404, så inget path traversal-skydd behöver "räcka till".
@@ -48,23 +50,38 @@ function createHandler({ fetchImpl = fetch } = {}) {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (url.pathname.startsWith("/api/")) {
+    if (req.method !== "GET" && req.method !== "POST") {
+      res.writeHead(405, { "Allow": "GET, POST" }).end("Method not allowed");
+      return;
+    }
     // /api/<kommun>/<endpoint>; /api/<endpoint> (äldre klient) → Stenungsund.
     const parts = url.pathname.slice("/api/".length).split("/");
     const [providerKey, endpoint] = parts.length === 1 ? ["stenungsund", parts[0]] : parts;
-    const API_BASE = PROVIDERS[providerKey];
-    if (!API_BASE || !ALLOWED.has(endpoint)) {
+    // Object.hasOwn: annars slår "__proto__" m.fl. upp saker på prototypen.
+    const API_BASE = Object.hasOwn(PROVIDERS, providerKey) ? PROVIDERS[providerKey] : undefined;
+    if (parts.length > 2 || !API_BASE || !ALLOWED.has(endpoint)) {
       res.writeHead(404).end("Unknown endpoint");
       return;
     }
     try {
       const body = req.method === "POST"
         ? await new Promise((resolve, reject) => {
-            let data = "";
-            req.on("data", c => { data += c; });
+            let data = "", size = 0;
+            req.on("data", c => {
+              if (data === null) return;
+              size += c.length;
+              // En adressökning är några hundra byte – allt större är oseriöst.
+              if (size > MAX_BODY) { data = null; resolve(null); return; }
+              data += c;
+            });
             req.on("end", () => resolve(data));
             req.on("error", reject);
           })
         : undefined;
+      if (body === null) {
+        res.writeHead(413).end("Request body too large");
+        return;
+      }
       const headers = {
         "Accept": "application/json, text/plain, */*",
         "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)"
@@ -73,7 +90,10 @@ function createHandler({ fetchImpl = fetch } = {}) {
       const upstream = await fetchImpl(API_BASE + "/" + endpoint + url.search, {
         method: req.method,
         headers,
-        body
+        body,
+        // Ge upp i stället för att låta en hängande kommun-tjänst hålla
+        // anslutningar öppna hos oss.
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
       });
       const text = await upstream.text();
       if (!upstream.ok) {
