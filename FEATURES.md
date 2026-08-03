@@ -87,6 +87,39 @@ Scenario: Fel döljs inte
   Så sägs det rakt ut, i stället för att gamla eller gissade datum visas
 ```
 
+## Egenskap: Påminnelse kvällen före tömning
+
+```gherkin
+Scenario: Besökaren slår på påminnelser
+  Givet att ett schema visas för en adress
+  När besökaren trycker "Slå på påminnelser"
+  Så registreras adressen och besökaren guidas att hämta ntfy-appen
+  (Android/iPhone) och prenumerera på ett eget slumpat topic hamtning-<id>
+  – topicnamnet avslöjar ingenting om adressen
+
+Scenario: Pushen går ut kvällen före
+  Givet en registrerad adress med tömning imorgon
+  När den halvtimmesvisa kontrollen körs efter kl 17 svensk tid
+  Så skickas en notis till adressens topic och till firehosen neomeda-all,
+  och samma kväll skickas aldrig någon dubblett
+
+Scenario: Notisen står för sig själv men röjer inget
+  Givet en tömning imorgon
+  När notisen byggs
+  Så säger titeln vad som händer ("Kärl 2 töms imorgon"), bodyn anger dag
+  och fraktioner – men adressen skickas aldrig med
+
+Scenario: Utan token är allt tyst avstängt
+  Givet att NTFY_TOKEN saknas i miljön
+  När appen startar och används
+  Så loggas det en gång, inga notiser skickas, och allt annat fungerar som vanligt
+
+Scenario: En trasig kommun-tjänst stoppar inte de andra
+  Givet flera registrerade adresser
+  När schemat för en adress inte går att hämta
+  Så loggas felet och övriga prenumeranter får ändå sina påminnelser
+```
+
 ## Egenskap: Servern exponerar bara appen
 
 ```gherkin

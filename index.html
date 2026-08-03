@@ -417,6 +417,17 @@
     .chip, .fyrfack, .panel, .whereami { border: 1px solid CanvasText; }
     .status::before { background: CanvasText; }
   }
+  .remind-steps { margin: 0.85rem 0 0; padding-left: 1.4rem; }
+  .remind-steps li { margin-top: 0.5rem; }
+  .remind-steps code, #remind-steps code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92em;
+    background: var(--ground);
+    border: 1px solid var(--rule-soft);
+    border-radius: 0.35rem;
+    padding: 0.1rem 0.35rem;
+    overflow-wrap: anywhere;
+  }
 </style>
 </head>
 <body>
@@ -469,6 +480,36 @@
     </div>
 
     <p class="also" id="also" hidden></p>
+  </section>
+
+  <section class="panel" id="remind-card" aria-labelledby="remind-heading" hidden>
+    <h2 class="panel-title" id="remind-heading">Påminnelse i mobilen</h2>
+    <p>
+      Få en push kvällen före tömning – ”Kärl 2 töms imorgon”. Notiserna skickas
+      via appen <strong>ntfy</strong> och innehåller aldrig din adress.
+    </p>
+    <div id="remind-cta">
+      <button class="btn btn-primary" type="button" id="remind-btn">Slå på påminnelser</button>
+      <p class="field-help" id="remind-error" role="alert" hidden></p>
+    </div>
+    <div id="remind-steps" hidden>
+      <ol class="remind-steps">
+        <li>
+          Hämta ntfy-appen:
+          <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" rel="noopener">Android</a> ·
+          <a href="https://apps.apple.com/us/app/ntfy/id1625396347" rel="noopener">iPhone</a>
+        </li>
+        <li>På iPhone: öppna appens Settings och sätt <em>Default server</em> till
+          <code>https://notify.neomeda.eu</code></li>
+        <li>Välj <em>Add subscription</em> och prenumerera på topicet
+          <code id="remind-topic"></code></li>
+      </ol>
+      <p class="field-help">
+        Klart! Ingen app? Det går också att
+        <a id="remind-web-link" href="https://notify.neomeda.eu" rel="noopener">prenumerera i webbläsaren</a>.
+        Ångrar du dig avslutar du bara prenumerationen i appen.
+      </p>
+    </div>
   </section>
 
   <section class="panel" id="bins-card" aria-labelledby="bins-heading">
@@ -889,6 +930,7 @@
     el("address-card").hidden = false;
     el("saved-bar").hidden = true;
     el("next-card").hidden = true;
+    el("remind-card").hidden = true;
     el("services").hidden = true;
     hideMatches();
     updateStaticCards(!!provider().fyrfack);
@@ -914,6 +956,7 @@
       if (diagnostics.length) addStatusNote("Fel: " + diagnostics.join(" · "));
     }
     el("next-card").hidden = true;
+    el("remind-card").hidden = true;
     el("services").hidden = true;
     if (provider().fyrfack) renderBins(null);
   }
@@ -991,6 +1034,7 @@
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ p: providerKey, b: building })); } catch (e) {}
       el("address").value = displayAddress(building);
       showResults(building);
+      updateRemindCard(building);
       // Flytta fokus till svaret först när besökaren själv har sökt –
       // vid sidladdning vore det desorienterande.
       if (moveFocus) el("next-heading").focus();
@@ -1008,6 +1052,58 @@
       showError("Kunde inte nå kommunens tjänst just nu. Försök igen om en stund.", true);
     }
   }
+
+  // ------- Påminnelser via ntfy -------
+  // Opt-in: servern registrerar adressen och svarar med ett slumpat topic som
+  // besökaren prenumererar på i ntfy-appen. Valet sparas lokalt så att
+  // instruktionerna visas direkt vid nästa besök.
+  const REMIND_KEY = "hamtschema-remind";
+  let remindBuilding = null;
+
+  function savedRemind() {
+    try { return JSON.parse(localStorage.getItem(REMIND_KEY)); } catch (e) { return null; }
+  }
+  function showRemindSteps(topic) {
+    el("remind-cta").hidden = true;
+    el("remind-steps").hidden = false;
+    el("remind-topic").textContent = topic;
+    el("remind-web-link").href = "https://notify.neomeda.eu/" + topic;
+  }
+  function updateRemindCard(building) {
+    remindBuilding = building;
+    // Utan server finns ingen påminnelsetjänst (sidan öppnad som fil).
+    if (location.protocol === "file:") { el("remind-card").hidden = true; return; }
+    el("remind-card").hidden = false;
+    const saved = savedRemind();
+    if (saved && saved.p === providerKey && saved.b === building) {
+      showRemindSteps(saved.topic);
+    } else {
+      el("remind-cta").hidden = false;
+      el("remind-steps").hidden = true;
+      el("remind-error").hidden = true;
+      el("remind-btn").disabled = false;
+    }
+  }
+  el("remind-btn").addEventListener("click", async () => {
+    const btn = el("remind-btn");
+    btn.disabled = true;
+    el("remind-error").hidden = true;
+    try {
+      const res = await fetch("/api/remind", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: providerKey, building: remindBuilding })
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      try { localStorage.setItem(REMIND_KEY, JSON.stringify({ p: providerKey, b: remindBuilding, topic: data.topic })); } catch (e) {}
+      showRemindSteps(data.topic);
+    } catch (err) {
+      btn.disabled = false;
+      el("remind-error").textContent = "Det gick inte att slå på påminnelser just nu. Försök igen om en stund.";
+      el("remind-error").hidden = false;
+    }
+  });
 
   // ------- Init -------
   // Kommunväljaren: alla i bokstavsordning.

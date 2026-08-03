@@ -36,6 +36,30 @@ webbläsare annars stoppar anropen (CORS). Ingen npm-installation krävs.
 Datumen hämtas live vid varje besök; det finns inget inlagt reservschema. Går
 tjänsten inte att nå säger sidan det rakt ut i stället för att visa gamla datum.
 
+## Påminnelser i mobilen (ntfy)
+
+Besökare kan få en push kvällen före tömning ("Kärl 2 töms imorgon") via den
+egna [ntfy](https://ntfy.sh)-instansen på <https://notify.neomeda.eu>. Flödet:
+
+1. Besökaren trycker **Slå på påminnelser** när schemat visas. Servern
+   registrerar adressen (`POST /api/remind`) och svarar med ett slumpat topic
+   `hamtning-<id>` – namnet avslöjar inget om adressen, och adressen skickas
+   aldrig i någon notis.
+2. Appen guidar till ntfy-apparna
+   ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy),
+   [iPhone](https://apps.apple.com/us/app/ntfy/id1625396347)) och visar vilket
+   topic som ska prenumereras på. Ett hushåll med samma adress delar topic.
+3. Servern kollar varje halvtimme och skickar påminnelsen efter kl 17 svensk
+   tid kvällen före tömning – till adressens topic och till firehosen
+   `neomeda-all` (titeln där prefixas "Hämtschema · "). `lastSent` per adress
+   hindrar dubbletter.
+
+Konfiguration: lägg `NTFY_TOKEN` i `.env` (se `.env.example`; write-only-token
+för ntfy-kontot `hamtning`). Saknas tokenet är påminnelserna tyst avstängda och
+resten av appen opåverkad. Prenumerationerna sparas i `data/reminders.json`
+(`DATA_DIR` styr katalogen; i Docker monteras `./data`). Lokalt läses `.env`
+med `node --env-file=.env server.js`; i Docker sköter compose det.
+
 ## Tester och arbetssätt
 
 Appens beteenden är dokumenterade som BDD-scenarier i [FEATURES.md](FEATURES.md).

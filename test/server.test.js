@@ -50,7 +50,8 @@ describe("Egenskap: bara appens egna filer exponeras", () => {
   after(() => server.close());
 
   it("Givet att serverkoden ligger i samma katalog, när någon försöker hämta den, så vägras det", async () => {
-    for (const p of ["/server.js", "/probe-api.js", "/README.md", "/docker-compose.yml"]) {
+    for (const p of ["/server.js", "/probe-api.js", "/README.md", "/docker-compose.yml",
+                     "/notify.js", "/reminders.js", "/.env", "/data/reminders.json"]) {
       const res = await fetch(base(server) + p);
       assert.equal(res.status, 404, p + " ska inte serveras");
     }

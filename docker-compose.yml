@@ -4,4 +4,11 @@ services:
     container_name: hamtning
     ports:
       - "3458:8080"
+    environment:
+      # Write-only-token för ntfy; läses ur .env bredvid den här filen.
+      # Utan token startar appen ändå, men push-påminnelserna är avstängda.
+      - NTFY_TOKEN=${NTFY_TOKEN:-}
+    volumes:
+      # Påminnelse-prenumerationerna överlever ombyggen av containern.
+      - ./data:/app/data
     restart: unless-stopped
