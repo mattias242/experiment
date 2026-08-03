@@ -559,16 +559,25 @@
   // unverified gick inte att nå från testmiljön (geo-blockering/brandvägg)
   // men har samma dokumenterade API och kan fungera från svenska nät.
   const PROVIDERS = {
+    // site: människoläsbar infosida om sophämtning hos respektive
+    // kommun/bolag – används som källänk i sidfoten (verifierade 2026-08-03).
     stenungsund: {
       label: "Stenungsunds kommun",
       base: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup",
       site: "https://www.stenungsund.se/bygga-bo-och-miljo/avfall-och-atervinning/nar-toms-mitt-karl",
+      siteLabel: "kommunens tjänst ”När töms mitt kärl?”",
       fyrfack: true
     },
-    boden: { label: "Bodens kommun", base: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup", unverified: true },
+    boden: {
+      label: "Bodens kommun",
+      base: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup",
+      site: "https://www.boden.se/bygga-och-boende/avfall-och-aterbruk/sophamtning-abonnemang-och-felanmalan",
+      unverified: true
+    },
     boras: {
       label: "Borås (Borås Energi och Miljö)",
       base: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup",
+      site: "https://borasem.se/webb/privat/avfallochatervinning/abonnemangforhushallsavfall/nastatomningsdag.4.5a231a8f188bd840a1327da.html",
       // Fackinnehåll enligt borasem.se "Abonnemang för hushållsavfall" (läst 2026-08-04).
       // API:et säger bara "Kärl 1"/"Kärl 2" – vad paketen innehåller finns inte som fält.
       packages: {
@@ -576,28 +585,84 @@
         "kärl 2": ["Tidningar", "Restavfall", "Ofärgat glas", "Metallförpackningar"]
       }
     },
-    "herrljunga-vargarda": { label: "Herrljunga & Vårgårda (Remondis)", base: "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup" },
-    kiruna: { label: "Kiruna (Tekniska Verken)", base: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup", unverified: true },
-    "kretslopp-sydost": { label: "Kretslopp Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö, Uppvidinge, Vetlanda)", base: "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup" },
-    lidkoping: { label: "Lidköpings kommun", base: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup", unverified: true },
-    ljungby: { label: "Ljungby kommun", base: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup" },
-    lycksele: { label: "Lycksele kommun", base: "https://future.lycksele.se/FutureWeb/SimpleWastePickup" },
+    "herrljunga-vargarda": {
+      label: "Herrljunga & Vårgårda (Remondis)",
+      base: "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup",
+      site: "https://herrljunga.se/bo-bygga-och-miljo/avfall-atervinning-och-oppettider/avfallsabonnemang-och-hamtning"
+    },
+    kiruna: {
+      label: "Kiruna (Tekniska Verken)",
+      base: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup",
+      site: "https://www.tekniskaverkenikiruna.se/atervinning-och-avfall/sok-tomningsdag",
+      unverified: true
+    },
+    "kretslopp-sydost": {
+      label: "Kretslopp Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö, Uppvidinge, Vetlanda)",
+      base: "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup",
+      site: "https://www.kretsloppsydost.se/privat/toemningsdag/"
+    },
+    lidkoping: {
+      label: "Lidköpings kommun",
+      base: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup",
+      site: "https://lidkoping.se/lidkoping-miljo-och-teknik-ab/start/avfall-och-atervinning/nar-kommer-sopbilen/sok-din-tomningsdag",
+      unverified: true
+    },
+    ljungby: {
+      label: "Ljungby kommun",
+      base: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup",
+      site: "https://www.ljungby.se/bygga-bo-och-miljo/avfall-och-atervinning/hamtning/hamtning-av-hushallsavfall"
+    },
+    lycksele: {
+      label: "Lycksele kommun",
+      base: "https://future.lycksele.se/FutureWeb/SimpleWastePickup",
+      site: "https://www.lycksele.se/lavab/kundtjanst/mina-sidor/nar-toms-mitt-avfallskarl/"
+    },
     mark: {
       label: "Marks kommun",
       base: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup",
+      site: "https://www.mark.se/bygga-bo-miljo-och-trafik/avfall-och-atervinning/sophamtning",
       // Fackinnehåll enligt mark.se "Närsortering i fyrfackskärl" (läst 2026-08-04).
       packages: {
         "fyrfack 1": ["Matavfall", "Pappersförpackningar", "Tidningar", "Färgat glas"],
         "fyrfack 2": ["Restavfall", "Plastförpackningar", "Metallförpackningar", "Ofärgat glas"]
       }
     },
-    nvoa: { label: "Nacka (Nacka vatten och avfall)", base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup", unverified: true },
-    orebro: { label: "Örebro kommun", base: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup" },
-    orust: { label: "Orusts kommun", base: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup" },
-    skelleftea: { label: "Skellefteå kommun", base: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup" },
-    ssam: { label: "SSAM (Växjö, Alvesta, Lessebo, Markaryd, Tingsryd)", base: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup" },
-    uppsalavatten: { label: "Uppsala (Uppsala vatten)", base: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup" },
-    vafabmiljo: { label: "VafabMiljö (Västerås, Sala, Enköping, Heby m.fl.)", base: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup" }
+    nvoa: {
+      label: "Nacka (Nacka vatten och avfall)",
+      base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup",
+      site: "https://www.nacka.se/nackavattenavfall/avfall/sophamtning/tomningsdag/",
+      unverified: true
+    },
+    orebro: {
+      label: "Örebro kommun",
+      base: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup",
+      site: "https://www.orebro.se/bygga-bo--trafik/avfall--atervinning/se-din-tomningsdag-och-hantera-dina-avfallskarl/sok-tomningsdag-pa-adress.html"
+    },
+    orust: {
+      label: "Orusts kommun",
+      base: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup",
+      site: "https://www.orust.se/bygga-bo-och-miljo/avfall-och-atervinning/hamtning-av-avfall"
+    },
+    skelleftea: {
+      label: "Skellefteå kommun",
+      base: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup",
+      site: "https://skelleftea.se/invanare/startsida/bygga-bo-och-miljo/avfall-och-atervinning/sophamtning---nar-toms-soporna"
+    },
+    ssam: {
+      label: "SSAM (Växjö, Alvesta, Lessebo, Markaryd, Tingsryd)",
+      base: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup",
+      site: "https://ssam.se/mitt-ssam/hamtdagar.html"
+    },
+    uppsalavatten: {
+      label: "Uppsala (Uppsala vatten)",
+      base: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup",
+      site: "https://www.uppsalavatten.se/sjalvservice/hamtningar-och-berakningar/dag-for-sophamtning-och-slamtomning"
+    },
+    vafabmiljo: {
+      label: "VafabMiljö (Västerås, Sala, Enköping, Heby m.fl.)",
+      base: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup",
+      site: "https://vafabmiljo.se/tjanster/se-din-tomningsdag/"
+    }
   };
   let providerKey = "stenungsund";
   const provider = () => PROVIDERS[providerKey];
@@ -746,8 +811,11 @@
     document.title = "När töms mitt kärl? – " + p.label;
     const link = el("source-link");
     if (p.site) {
+      // Källänken ska gå till en sida en människa kan läsa – inte till
+      // API-endpointen som datumen tekniskt hämtas ifrån.
       link.href = p.site;
-      link.textContent = "kommunens tjänst ”När töms mitt kärl?”";
+      link.textContent = p.siteLabel ||
+        "sidan om sophämtning hos " + new URL(p.site).hostname.replace(/^www\./, "");
     } else {
       link.href = new URL(p.base).origin;
       link.textContent = "EDP-tjänsten på " + new URL(p.base).hostname;
