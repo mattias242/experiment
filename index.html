@@ -1045,12 +1045,11 @@
   }
 
   // ------- Init -------
-  // Kommunväljaren: Stenungsund först, övriga i bokstavsordning.
+  // Kommunväljaren: alla i bokstavsordning.
   function populateProviderSelect() {
     const select = el("kommun");
     const keys = Object.keys(PROVIDERS)
-      .sort((a, b) => (a === "stenungsund" ? -1 : b === "stenungsund" ? 1
-        : PROVIDERS[a].label.localeCompare(PROVIDERS[b].label, "sv")));
+      .sort((a, b) => PROVIDERS[a].label.localeCompare(PROVIDERS[b].label, "sv"));
     for (const key of keys) {
       const opt = document.createElement("option");
       opt.value = key;
