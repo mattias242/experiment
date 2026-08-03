@@ -46,6 +46,12 @@ tjänsten inte att nå säger sidan det rakt ut i stället för att visa gamla d
   Stenungsundsadresser med fyrfack får kärldiagrammet; allt annat får en
   generisk fraktionslista som fungerar för alla kommuners tjänstetyper
   ("Restavfall", "Fyrfack 1", "Pappersförp." osv).
+- **Paketkunskap** — EDP-API:et säger vilken tjänst adressen har men inte vad
+  paketen innehåller. För paketkommunerna Borås ("Kärl 1/2") och Mark
+  ("Fyrfack 1/2") visar appen därför fackens fraktioner hämtade från respektive
+  kommuns egen infosida (borasem.se respektive mark.se, lästa 2026-08-04).
+  Övriga kommuner modellerar varje fraktion som egen tjänst i API:et, så där
+  behövs ingen extra kunskap.
 - **Fyrfacksdiagrammet** (Stenungsund) — kärlet sett uppifrån: insats överst,
   kärldel underst, med fraktionerna på plats.
 - **Farligt avfall-boxen** (Stenungsund) — hur den används.

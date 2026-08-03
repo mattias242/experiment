@@ -265,6 +265,12 @@
     font-weight: 600;
     font-size: var(--fs-small);
   }
+  .gen-fracs {
+    display: block;
+    font-weight: 400;
+    color: var(--muted);
+    margin-top: 0.15rem;
+  }
 
   .verdict-when {
     font-size: clamp(2.1rem, 8.5vw, 3.1rem);
@@ -510,14 +516,31 @@
       fyrfack: true
     },
     boden: { label: "Bodens kommun", base: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup", unverified: true },
-    boras: { label: "Borås (Borås Energi och Miljö)", base: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup" },
+    boras: {
+      label: "Borås (Borås Energi och Miljö)",
+      base: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup",
+      // Fackinnehåll enligt borasem.se "Abonnemang för hushållsavfall" (läst 2026-08-04).
+      // API:et säger bara "Kärl 1"/"Kärl 2" – vad paketen innehåller finns inte som fält.
+      packages: {
+        "kärl 1": ["Plastförpackningar", "Färgat glas", "Matavfall", "Pappersförpackningar"],
+        "kärl 2": ["Tidningar", "Restavfall", "Ofärgat glas", "Metallförpackningar"]
+      }
+    },
     "herrljunga-vargarda": { label: "Herrljunga & Vårgårda (Remondis)", base: "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup" },
     kiruna: { label: "Kiruna (Tekniska Verken)", base: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup", unverified: true },
     "kretslopp-sydost": { label: "Kretslopp Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö, Uppvidinge, Vetlanda)", base: "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup" },
     lidkoping: { label: "Lidköpings kommun", base: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup", unverified: true },
     ljungby: { label: "Ljungby kommun", base: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup" },
     lycksele: { label: "Lycksele kommun", base: "https://future.lycksele.se/FutureWeb/SimpleWastePickup" },
-    mark: { label: "Marks kommun", base: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup" },
+    mark: {
+      label: "Marks kommun",
+      base: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup",
+      // Fackinnehåll enligt mark.se "Närsortering i fyrfackskärl" (läst 2026-08-04).
+      packages: {
+        "fyrfack 1": ["Matavfall", "Pappersförpackningar", "Tidningar", "Färgat glas"],
+        "fyrfack 2": ["Restavfall", "Plastförpackningar", "Metallförpackningar", "Ofärgat glas"]
+      }
+    },
     nvoa: { label: "Nacka (Nacka vatten och avfall)", base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup", unverified: true },
     orebro: { label: "Örebro kommun", base: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup" },
     orust: { label: "Orusts kommun", base: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup" },
@@ -785,6 +808,12 @@
     return true;
   }
 
+  function packageFractions(serviceName) {
+    const packages = provider().packages;
+    if (!packages || !serviceName) return null;
+    return packages[serviceName.trim().toLowerCase()] || null;
+  }
+
   // Generisk vy för adresser utan Stenungsunds fyrfack: tidigaste tömningsdag,
   // vilka fraktioner som töms den dagen, och nästa dag därefter.
   function renderNextGeneric(upcoming) {
@@ -820,6 +849,15 @@
     for (const name of names) {
       const li = document.createElement("li");
       li.textContent = name;
+      // Paketkommunernas "Kärl 1"/"Fyrfack 2" säger inget om innehållet –
+      // fraktionerna kommer från kommunens egen infosida (se PROVIDERS).
+      const fractions = packageFractions(name);
+      if (fractions) {
+        const sub = document.createElement("span");
+        sub.className = "gen-fracs";
+        sub.textContent = fractions.join(" · ");
+        li.appendChild(sub);
+      }
       ul.appendChild(li);
     }
     contents.appendChild(ul);
