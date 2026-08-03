@@ -315,12 +315,16 @@
     throw lastErr;
   }
 
+  // "hosted" = delad/publicerad sida (t.ex. artifact) vars säkerhetspolicy
+  // aldrig tillåter externa anrop – där är reservschemat det normala läget.
+  function runMode() {
+    if (location.protocol === "file:") return "file";
+    if (/^(localhost|127\.)/.test(location.hostname)) return "localhost";
+    return "hosted";
+  }
   function runHint() {
-    if (location.protocol === "file:") {
+    if (runMode() === "file") {
       return "Du har öppnat filen direkt – starta appen med “node server.js” och öppna http://localhost:8080 för aktuella datum.";
-    }
-    if (!/^(localhost|127\.)/.test(location.hostname)) {
-      return "Den här sidan körs på en server som inte tillåter externa anrop – kör “node server.js” lokalt för aktuella datum.";
     }
     return "Kontrollera serverns terminalfönster för felmeddelande från proxyn.";
   }
@@ -515,6 +519,12 @@
       const notFound = err && /hittades inte|Inga tjänster/.test(err.message || "");
       if (notFound) {
         useFallback("”" + addressText + "” – " + err.message + ".");
+      } else if (runMode() === "hosted") {
+        useFallback("Den här delade sidan kan inte hämta livedata.");
+        const note = document.createElement("div");
+        note.style.marginTop = "0.4rem";
+        note.textContent = "Schemat nedan är avstämt mot kommunens tjänst 2026-08-02 och gäller hela 2026.";
+        el("status").appendChild(note);
       } else {
         useFallback("Kunde inte nå kommunens tjänst härifrån.", true);
       }
