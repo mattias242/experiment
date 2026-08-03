@@ -60,6 +60,19 @@ resten av appen opåverkad. Prenumerationerna sparas i `data/reminders.json`
 (`DATA_DIR` styr katalogen; i Docker monteras `./data`). Lokalt läses `.env`
 med `node --env-file=.env server.js`; i Docker sköter compose det.
 
+Samma ntfy-topic (`hamtning`) används för driftlarm: nätverksfel eller 5xx
+från en kommuns API ger en notis, dämpad till högst en per kommun och dygn.
+
+## Skydd mot missbruk
+
+API:t (proxyn och `/api/remind`) har en beroendefri per-IP-spärr: 60 anrop/min
+för proxyn, 10/min för opt-in, därutöver 429. Klient-IP:n läses från
+`CF-Connecting-IP`/`X-Forwarded-For`, som är pålitliga eftersom containern
+bara nås via Cloudflare + DSM-nginx. Statiska filer berörs inte. Spärren
+stoppar loopande skript; distribuerade angrepp är Cloudflares jobb. Sedan
+tidigare: endpoint-allowlist, 16 kB-bodytak, 15 s upstream-timeout och max
+200 påminnelse-prenumerationer.
+
 ## Tester och arbetssätt
 
 Appens beteenden är dokumenterade som BDD-scenarier i [FEATURES.md](FEATURES.md).

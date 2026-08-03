@@ -154,4 +154,19 @@ Scenario: Missbruk begränsas
   När proxyn tar emot det
   Så avvisas det med 405 respektive 413
   Och anrop mot en hängande kommun-tjänst avbryts efter 15 sekunder
+
+Scenario: Loopande skript spärras per IP
+  Givet ett skript som hamrar API:t från en och samma IP
+  När gränsen passeras (60 API-anrop/min, 10 opt-in/min)
+  Så blir svaret 429 tills fönstret löpt ut
+  Och statiska filer berörs inte, och andra besökares IP:n påverkas inte
+  (klient-IP:n läses från CF-Connecting-IP/X-Forwarded-For bakom proxyn)
+
+Scenario: Driftlarm när en kommun-tjänst felar
+  Givet att en kommuns API ger nätverksfel eller 5xx – i proxyn eller
+  i påminnelsekontrollen
+  När felet inträffar första gången under dygnet
+  Så skickas en notis till hamtning-topicet (och firehosen)
+  Men fler fel för samma kommun är dämpade till nästa dygn,
+  och 4xx-svar larmar aldrig – okänd adress är inte driftfel
 ```

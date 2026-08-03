@@ -4,6 +4,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { createRateLimiter, clientIp } = require("./ratelimit.js");
 
 // Måste hållas i synk med PROVIDERS i index.html.
 const PROVIDERS = {
@@ -61,10 +62,28 @@ function readBody(req) {
 }
 
 // Hanteraren skapas via en fabrik så att testerna kan köra den på en egen
-// port och byta ut fetch, påminnelsetjänsten och driftlarmet mot stubbar.
-function createHandler({ fetchImpl = fetch, reminders, alarm } = {}) {
+// port och byta ut fetch, påminnelsetjänsten, driftlarmet och spärrarna
+// mot stubbar.
+function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
+  // En sökning är två anrop (adress + schema); 60/min per IP stör ingen
+  // människa men stoppar loopande skript. Opt-in behövs bara någon enstaka
+  // gång och hålls stramare.
+  const limit = limits || {
+    api: createRateLimiter({ limit: 60 }),
+    remind: createRateLimiter({ limit: 10 })
+  };
   return async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // Spärren gäller bara API:t – statiska filer är billiga och cachas ändå.
+  if (url.pathname.startsWith("/api/")) {
+    const allowed = url.pathname === "/api/remind" ? limit.remind(clientIp(req)) : limit.api(clientIp(req));
+    if (!allowed) {
+      res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "60" });
+      res.end(JSON.stringify({ error: "För många anrop – vänta en stund." }));
+      return;
+    }
+  }
 
   // Opt-in till tömningspåminnelser: adressen registreras och besökaren får
   // sitt ntfy-topic tillbaka. Utan påminnelsetjänst finns endpointen inte.

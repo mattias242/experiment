@@ -51,7 +51,7 @@ describe("Egenskap: bara appens egna filer exponeras", () => {
 
   it("Givet att serverkoden ligger i samma katalog, när någon försöker hämta den, så vägras det", async () => {
     for (const p of ["/server.js", "/probe-api.js", "/README.md", "/docker-compose.yml",
-                     "/notify.js", "/reminders.js", "/.env", "/data/reminders.json"]) {
+                     "/notify.js", "/reminders.js", "/ratelimit.js", "/.env", "/data/reminders.json"]) {
       const res = await fetch(base(server) + p);
       assert.equal(res.status, 404, p + " ska inte serveras");
     }
@@ -247,5 +247,57 @@ describe("Egenskap: driftlarmet kopplas in när kommunens tjänst felar", () => 
     alarms.length = 0; mode = "404";
     await fetch(base(server) + "/api/orebro/SearchAdress", { method: "POST", body: "searchText=x" });
     assert.equal(alarms.length, 0);
+  });
+});
+
+describe("Egenskap: API:t har en per-IP-spärr", () => {
+  let server;
+  const seenIps = [];
+  let allowNext = true;
+  const limits = {
+    api: ip => { seenIps.push(ip); return allowNext; },
+    remind: ip => { seenIps.push("remind:" + ip); return allowNext; }
+  };
+  before(async () => {
+    server = await startServer({ fetchImpl: async () => new Response("{}", { status: 200 }), limits,
+                                 reminders: { subscribe: () => "hamtning-feedfeedfeedfeed" } });
+  });
+  after(() => server.close());
+
+  it("Givet att spärren slagit till, när ett API-anrop görs, så blir svaret 429", async () => {
+    allowNext = false;
+    const res = await fetch(base(server) + "/api/stenungsund/SearchAdress", { method: "POST", body: "searchText=x" });
+    assert.equal(res.status, 429);
+    const remind = await fetch(base(server) + "/api/remind", { method: "POST", body: "{}" });
+    assert.equal(remind.status, 429);
+    allowNext = true;
+    const ok = await fetch(base(server) + "/api/stenungsund/SearchAdress", { method: "POST", body: "searchText=x" });
+    assert.equal(ok.status, 200);
+  });
+
+  it("Givet Cloudflare och nginx framför, när klientens IP avgörs, så gäller CF-Connecting-IP före X-Forwarded-For före socketen", async () => {
+    allowNext = true;
+    seenIps.length = 0;
+    await fetch(base(server) + "/api/stenungsund/SearchAdress", {
+      method: "POST", body: "x",
+      headers: { "X-Forwarded-For": "203.0.113.9, 172.16.0.1" }
+    });
+    assert.equal(seenIps[0], "203.0.113.9");
+    seenIps.length = 0;
+    await fetch(base(server) + "/api/stenungsund/SearchAdress", {
+      method: "POST", body: "x",
+      headers: { "CF-Connecting-IP": "198.51.100.7", "X-Forwarded-For": "203.0.113.9" }
+    });
+    assert.equal(seenIps[0], "198.51.100.7");
+    seenIps.length = 0;
+    await fetch(base(server) + "/api/stenungsund/SearchAdress", { method: "POST", body: "x" });
+    assert.equal(seenIps[0], "127.0.0.1");
+  });
+
+  it("Givet statiska filer, när de hämtas, så berörs de inte av spärren", async () => {
+    allowNext = false;
+    const res = await fetch(base(server) + "/");
+    assert.equal(res.status, 200);
+    allowNext = true;
   });
 });
