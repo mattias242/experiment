@@ -157,10 +157,17 @@ Scenario: Missbruk begränsas
 
 Scenario: Loopande skript spärras per IP
   Givet ett skript som hamrar API:t från en och samma IP
-  När gränsen passeras (60 API-anrop/min, 10 opt-in/min)
+  När gränsen passeras (120 API-anrop/min, 20 opt-in/min)
   Så blir svaret 429 tills fönstret löpt ut
   Och statiska filer berörs inte, och andra besökares IP:n påverkas inte
-  (klient-IP:n läses från CF-Connecting-IP/X-Forwarded-For bakom proxyn)
+
+Scenario: Spärren går inte att lura med förfalskade headers
+  Givet en angripare som skriver egna X-Forwarded-For- eller
+  CF-Connecting-IP-headers för att rotera sin identitet
+  När anropen når servern
+  Så räknas bara det sista XFF-ledet – skrivet av vår egen nginx –
+  och är spärrlistan full av färska nycklar nekas nya nycklar
+  hellre än att minnet växer
 
 Scenario: Driftlarm när en kommun-tjänst felar
   Givet att en kommuns API ger nätverksfel eller 5xx – i proxyn eller

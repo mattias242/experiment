@@ -275,20 +275,23 @@ describe("Egenskap: API:t har en per-IP-spärr", () => {
     assert.equal(ok.status, 200);
   });
 
-  it("Givet Cloudflare och nginx framför, när klientens IP avgörs, så gäller CF-Connecting-IP före X-Forwarded-For före socketen", async () => {
+  it("Givet nginx framför, när klientens IP avgörs, så räknas bara det sista XFF-ledet – det enda vår egen proxy skrivit", async () => {
     allowNext = true;
     seenIps.length = 0;
+    // Klienten kan skriva egna led ("fejk") men nginx appendar alltid sin
+    // faktiska motpart sist – det är den som gäller.
     await fetch(base(server) + "/api/stenungsund/SearchAdress", {
       method: "POST", body: "x",
-      headers: { "X-Forwarded-For": "203.0.113.9, 172.16.0.1" }
+      headers: { "X-Forwarded-For": "fejk.fejk.fejk.fejk, 203.0.113.9" }
     });
     assert.equal(seenIps[0], "203.0.113.9");
     seenIps.length = 0;
+    // Klientskrivna CF-Connecting-IP kan förfalskas förbi Cloudflare och ignoreras.
     await fetch(base(server) + "/api/stenungsund/SearchAdress", {
       method: "POST", body: "x",
       headers: { "CF-Connecting-IP": "198.51.100.7", "X-Forwarded-For": "203.0.113.9" }
     });
-    assert.equal(seenIps[0], "198.51.100.7");
+    assert.equal(seenIps[0], "203.0.113.9");
     seenIps.length = 0;
     await fetch(base(server) + "/api/stenungsund/SearchAdress", { method: "POST", body: "x" });
     assert.equal(seenIps[0], "127.0.0.1");

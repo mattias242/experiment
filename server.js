@@ -65,12 +65,13 @@ function readBody(req) {
 // port och byta ut fetch, påminnelsetjänsten, driftlarmet och spärrarna
 // mot stubbar.
 function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
-  // En sökning är två anrop (adress + schema); 60/min per IP stör ingen
-  // människa men stoppar loopande skript. Opt-in behövs bara någon enstaka
-  // gång och hålls stramare.
+  // En sökning är två anrop (adress + schema); 120/min stör ingen människa
+  // men stoppar loopande skript. Gränsen har marginal för att besökare bakom
+  // samma Cloudflare-edge delar hink (se clientIp). Opt-in behövs bara någon
+  // enstaka gång och hålls stramare.
   const limit = limits || {
-    api: createRateLimiter({ limit: 60 }),
-    remind: createRateLimiter({ limit: 10 })
+    api: createRateLimiter({ limit: 120 }),
+    remind: createRateLimiter({ limit: 20 })
   };
   return async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);

@@ -65,13 +65,16 @@ från en kommuns API ger en notis, dämpad till högst en per kommun och dygn.
 
 ## Skydd mot missbruk
 
-API:t (proxyn och `/api/remind`) har en beroendefri per-IP-spärr: 60 anrop/min
-för proxyn, 10/min för opt-in, därutöver 429. Klient-IP:n läses från
-`CF-Connecting-IP`/`X-Forwarded-For`, som är pålitliga eftersom containern
-bara nås via Cloudflare + DSM-nginx. Statiska filer berörs inte. Spärren
-stoppar loopande skript; distribuerade angrepp är Cloudflares jobb. Sedan
-tidigare: endpoint-allowlist, 16 kB-bodytak, 15 s upstream-timeout och max
-200 påminnelse-prenumerationer.
+API:t (proxyn och `/api/remind`) har en beroendefri per-IP-spärr: 120 anrop/min
+för proxyn, 20/min för opt-in, därutöver 429. Nyckeln är det sista
+`X-Forwarded-For`-ledet – det enda som skrivits av vår egen nginx och därmed
+inte kan förfalskas av klienten (klientskrivna led och `CF-Connecting-IP` kan
+spoofas av den som går direkt mot origin-IP:t, och ignoreras). Priset är att
+besökare bakom samma Cloudflare-edge delar hink, därav marginalen i gränserna.
+Är spärrlistan full av färska nycklar nekas nya nycklar hellre än att minnet
+växer. Statiska filer berörs inte. Spärren stoppar loopande skript;
+distribuerade angrepp är Cloudflares jobb. Sedan tidigare: endpoint-allowlist,
+16 kB-bodytak, 15 s upstream-timeout och max 200 påminnelse-prenumerationer.
 
 ## Tester och arbetssätt
 

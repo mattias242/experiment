@@ -40,3 +40,16 @@ describe("Egenskap: en IP kan inte hamra API:t i loop", () => {
     assert.ok(allow.size() <= 101, "spärrlistan ska rensas, var " + allow.size());
   });
 });
+
+describe("Egenskap: spärren står emot nyckelrotation", () => {
+  it("Givet att listan är full av färska nycklar, när nya nycklar strömmar in, så nekas de hellre än att minnet växer", () => {
+    let t = 0;
+    const allow = createRateLimiter({ limit: 5, windowMs: 60000, now: () => t, maxEntries: 50 });
+    for (let i = 0; i < 50; i++) assert.equal(allow("rot-" + i), true);
+    assert.equal(allow("rot-ny"), false, "ny nyckel ska nekas när listan är full av färska");
+    assert.ok(allow.size() <= 50);
+    assert.equal(allow("rot-0"), true, "redan kända nycklar fungerar fortfarande");
+    t = 60001;
+    assert.equal(allow("rot-ny"), true, "efter fönstret släpps nya nycklar in igen");
+  });
+});
