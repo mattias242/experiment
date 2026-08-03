@@ -891,20 +891,32 @@
     el("services").hidden = services.length === 0;
   }
 
+  // Anläggningsnumret sist i kommunens adressträngar ("Storgatan 1, Orten (1502024)")
+  // är bara en API-nyckel – för användaren visas adressen utan det. Obs: en ny
+  // sökning med numret kvar ger noll träffar, så det får inte hamna i sökfältet.
+  function displayAddress(building) {
+    return building.replace(/\s*\(\d+\)\s*$/, "");
+  }
+
   // Kommunens sökning kan ge flera träffar ("Storgatan 1" finns i flera orter).
   // Då får användaren välja, i stället för att vi gissar på första träffen.
   function renderMatches(buildings) {
     const list = el("match-list");
     list.textContent = "";
-    for (const b of buildings) {
+    // Samma adress kan finnas flera gånger med olika anläggningsnummer –
+    // bara då visas numret, så att träffarna går att skilja åt.
+    const labels = buildings.map(displayAddress);
+    const seen = {};
+    for (const l of labels) { const k = l.toLowerCase(); seen[k] = (seen[k] || 0) + 1; }
+    buildings.forEach((b, i) => {
       const li = document.createElement("li");
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.textContent = b;
+      btn.textContent = seen[labels[i].toLowerCase()] > 1 ? b : labels[i];
       btn.addEventListener("click", () => { hideMatches(); useBuilding(b, true); });
       li.appendChild(btn);
       list.appendChild(li);
-    }
+    });
     el("matches").hidden = false;
     const first = list.querySelector("button");
     if (first) first.focus();
@@ -918,7 +930,7 @@
   function showResults(building) {
     el("address-card").hidden = true;
     el("saved-bar").hidden = false;
-    el("saved-address").textContent = building;
+    el("saved-address").textContent = displayAddress(building);
   }
   function showAddressForm(message) {
     el("address-card").hidden = false;
@@ -1024,7 +1036,7 @@
       el("next-card").hidden = false;
       setStatus("Aktuella datum från " + new URL(provider().base).hostname + ".", "live");
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ p: providerKey, b: building })); } catch (e) {}
-      el("address").value = building;
+      el("address").value = displayAddress(building);
       showResults(building);
       // Flytta fokus till svaret först när besökaren själv har sökt –
       // vid sidladdning vore det desorienterande.
@@ -1037,7 +1049,7 @@
   function reportLookupError(err, addressText) {
     const notFound = err && /hittades inte|Inga tjänster/.test(err.message || "");
     if (notFound) {
-      showError("”" + addressText + "” – " + err.message + ". Kontrollera stavningen.");
+      showError("”" + displayAddress(addressText) + "” – " + err.message + ". Kontrollera stavningen.");
       el("address").setAttribute("aria-invalid", "true");
     } else {
       showError("Kunde inte nå kommunens tjänst just nu. Försök igen om en stund.", true);
@@ -1098,7 +1110,7 @@
   if (provider().fyrfack) renderBins(null);
 
   if (saved) {
-    el("address").value = saved.b;
+    el("address").value = displayAddress(saved.b);
     showResults(saved.b);
     useBuilding(saved.b, false);
   } else {
