@@ -53,4 +53,26 @@ function createNotifier({ fetchImpl = fetch, token = process.env.NTFY_TOKEN, log
   };
 }
 
-module.exports = { encodeTitle, createNotifier };
+function stockholmToday() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+}
+
+// Driftlarm när en kommun-tjänst felar: en notis till apptopicet, men högst
+// en per kommun och dygn – ett API som ligger nere en hel kväll ska ge ett
+// larm, inte hundra.
+function createUpstreamAlarm({ notify, today = stockholmToday } = {}) {
+  const alarmedDay = new Map();
+  return async function report(provider, detail) {
+    const day = today();
+    if (alarmedDay.get(provider) === day) return;
+    alarmedDay.set(provider, day);
+    await notify({
+      topic: APP_SLUG,
+      title: `Kommun-tjänsten ${provider} felar`,
+      body: `${String(detail).slice(0, 200)} Fler fel för ${provider} dämpas till imorgon.`,
+      tags: ["rotating_light"]
+    });
+  };
+}
+
+module.exports = { encodeTitle, createNotifier, createUpstreamAlarm };

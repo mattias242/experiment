@@ -133,3 +133,44 @@ describe("Egenskap: utan token är notiser tyst avstängda", () => {
     assert.equal(logged.length, 1, "ingen spam vid varje anrop");
   });
 });
+
+describe("Egenskap: driftlarm när en kommun-tjänst felar, utan spam", () => {
+  const { createUpstreamAlarm } = require("../notify.js");
+
+  function alarmRig(days) {
+    const sent = [];
+    let i = 0;
+    const report = createUpstreamAlarm({
+      notify: async ev => { sent.push(ev); },
+      today: () => days[Math.min(i, days.length - 1)]
+    });
+    return { report, sent, nextDay: () => i++ };
+  }
+
+  it("Givet första felet för en kommun, när det rapporteras, så larmas apptopicet med kommunen i titeln", async () => {
+    const { report, sent } = alarmRig(["2026-08-05"]);
+    await report("boras", "HTTP 502 vid GetWastePickupSchedule");
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].topic, "hamtning");
+    assert.match(sent[0].title, /boras/);
+    assert.match(sent[0].body, /HTTP 502/);
+  });
+
+  it("Givet upprepade fel samma dygn, när de rapporteras, så larmas det bara en gång per kommun", async () => {
+    const { report, sent } = alarmRig(["2026-08-05"]);
+    await report("boras", "fel 1");
+    await report("boras", "fel 2");
+    await report("orebro", "annat fel");
+    assert.equal(sent.length, 2);
+    assert.match(sent[0].title, /boras/);
+    assert.match(sent[1].title, /orebro/);
+  });
+
+  it("Givet ett nytt dygn, när kommunen felar igen, så larmas det på nytt", async () => {
+    const { report, sent, nextDay } = alarmRig(["2026-08-05", "2026-08-06"]);
+    await report("boras", "fel");
+    nextDay();
+    await report("boras", "fel igen");
+    assert.equal(sent.length, 2);
+  });
+});

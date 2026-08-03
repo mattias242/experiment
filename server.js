@@ -61,8 +61,8 @@ function readBody(req) {
 }
 
 // Hanteraren skapas via en fabrik så att testerna kan köra den på en egen
-// port och byta ut fetch och påminnelsetjänsten mot stubbar.
-function createHandler({ fetchImpl = fetch, reminders } = {}) {
+// port och byta ut fetch, påminnelsetjänsten och driftlarmet mot stubbar.
+function createHandler({ fetchImpl = fetch, reminders, alarm } = {}) {
   return async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -124,11 +124,15 @@ function createHandler({ fetchImpl = fetch, reminders } = {}) {
       const text = await upstream.text();
       if (!upstream.ok) {
         console.error(`Upstream ${endpoint}: HTTP ${upstream.status} – ${text.slice(0, 200)}`);
+        // 5xx är driftfel hos kommunen och värt ett larm; 4xx är bara ett
+        // svar (t.ex. okänd adress) och vidarebefordras utan väsen.
+        if (alarm && upstream.status >= 500) alarm(providerKey, `HTTP ${upstream.status} vid ${endpoint}.`);
       }
       res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
       res.end(text);
     } catch (err) {
       console.error(`Proxyfel mot ${API_BASE}/${endpoint}:`, err.cause || err);
+      if (alarm) alarm(providerKey, `${String(err.cause || err)} vid ${endpoint}.`);
       res.writeHead(502, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Proxyn kunde inte nå kommunens tjänst", detail: String(err.cause || err) }));
     }
@@ -148,15 +152,18 @@ function createHandler({ fetchImpl = fetch, reminders } = {}) {
 module.exports = { createHandler, PROVIDERS };
 
 if (require.main === module) {
-  const { createNotifier } = require("./notify.js");
+  const { createNotifier, createUpstreamAlarm } = require("./notify.js");
   const { createReminderService } = require("./reminders.js");
+  const notify = createNotifier();
+  const alarm = createUpstreamAlarm({ notify });
   const reminders = createReminderService({
     dataFile: path.join(process.env.DATA_DIR || path.join(__dirname, "data"), "reminders.json"),
     providers: PROVIDERS,
-    notify: createNotifier()
+    notify,
+    alarm
   });
   reminders.start();
-  http.createServer(createHandler({ reminders })).listen(PORT, () => {
+  http.createServer(createHandler({ reminders, alarm })).listen(PORT, () => {
     console.log(`Hämtschema-appen körs på http://localhost:${PORT}`);
   });
 }

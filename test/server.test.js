@@ -211,3 +211,41 @@ describe("Egenskap: opt-in till påminnelser via API:t", () => {
     bare.close();
   });
 });
+
+describe("Egenskap: driftlarmet kopplas in när kommunens tjänst felar", () => {
+  let server;
+  const alarms = [];
+  let mode = "ok";
+  const fetchStub = async () => {
+    if (mode === "throw") throw new Error("ECONNREFUSED upstream");
+    if (mode === "500") return new Response("boom", { status: 500 });
+    if (mode === "404") return new Response("not found", { status: 404 });
+    return new Response("{}", { status: 200 });
+  };
+  before(async () => {
+    server = await startServer({ fetchImpl: fetchStub, alarm: (provider, detail) => alarms.push({ provider, detail }) });
+  });
+  after(() => server.close());
+
+  it("Givet ett nätverksfel mot kommunen, när proxyn anropas, så larmas kommunen", async () => {
+    alarms.length = 0; mode = "throw";
+    const res = await fetch(base(server) + "/api/boras/SearchAdress", { method: "POST", body: "searchText=x" });
+    assert.equal(res.status, 502);
+    assert.equal(alarms.length, 1);
+    assert.equal(alarms[0].provider, "boras");
+    assert.match(alarms[0].detail, /ECONNREFUSED/);
+  });
+
+  it("Givet HTTP 500 från kommunen, när proxyn anropas, så larmas det också", async () => {
+    alarms.length = 0; mode = "500";
+    await fetch(base(server) + "/api/orebro/SearchAdress", { method: "POST", body: "searchText=x" });
+    assert.equal(alarms.length, 1);
+    assert.match(alarms[0].detail, /HTTP 500/);
+  });
+
+  it("Givet HTTP 404 från kommunen, när proxyn anropas, så larmas det inte – adressfel är inte driftfel", async () => {
+    alarms.length = 0; mode = "404";
+    await fetch(base(server) + "/api/orebro/SearchAdress", { method: "POST", body: "searchText=x" });
+    assert.equal(alarms.length, 0);
+  });
+});

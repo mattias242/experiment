@@ -23,7 +23,7 @@ function stockholmNow() {
   return { todayStr: `${get("year")}-${get("month")}-${get("day")}`, hour: parseInt(get("hour"), 10) };
 }
 
-function createReminderService({ dataFile, providers, notify, fetchImpl = fetch, log = console }) {
+function createReminderService({ dataFile, providers, notify, alarm, fetchImpl = fetch, log = console }) {
   let subs = [];
   try {
     subs = JSON.parse(fs.readFileSync(dataFile, "utf8"));
@@ -67,7 +67,11 @@ function createReminderService({ dataFile, providers, notify, fetchImpl = fetch,
           headers: { "Accept": "application/json" },
           signal: AbortSignal.timeout(SCHEDULE_TIMEOUT_MS)
         });
-        if (!res.ok) { log.error(`Påminnelse ${sub.topic}: HTTP ${res.status} från ${sub.provider}`); continue; }
+        if (!res.ok) {
+          log.error(`Påminnelse ${sub.topic}: HTTP ${res.status} från ${sub.provider}`);
+          if (alarm && res.status >= 500) alarm(sub.provider, `HTTP ${res.status} vid schemahämtning.`);
+          continue;
+        }
         const data = await res.json();
         const reminder = reminderFor(data && (data.RhServices || data.rhServices), today);
         if (!reminder) continue;
@@ -76,6 +80,7 @@ function createReminderService({ dataFile, providers, notify, fetchImpl = fetch,
         changed = true;
       } catch (err) {
         log.error(`Påminnelse ${sub.topic}:`, String(err.cause || err));
+        if (alarm) alarm(sub.provider, `${String(err.cause || err)} vid schemahämtning.`);
       }
     }
     if (changed) persist();

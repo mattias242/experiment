@@ -122,3 +122,23 @@ describe("Egenskap: påminnelsen går ut kvällen före tömning", () => {
     assert.equal(sent[1].title, "Kärl 1 töms imorgon");
   });
 });
+
+describe("Egenskap: driftlarmet nås även från påminnelsekontrollen", () => {
+  it("Givet att schemahämtningen felar, när kontrollen körs, så larmas kommunen", async () => {
+    const alarms = [];
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hamtning-test-"));
+    const service = createReminderService({
+      dataFile: path.join(dir, "reminders.json"),
+      providers: PROVIDERS,
+      notify: async () => {},
+      alarm: (provider, detail) => alarms.push({ provider, detail }),
+      fetchImpl: async () => { throw new Error("ETIMEDOUT"); },
+      log: { error: () => {}, warn: () => {} }
+    });
+    service.subscribe("stenungsund", "Storgatan 1, Orten (123)");
+    await service.checkNow({ todayStr: "2026-08-05" });
+    assert.equal(alarms.length, 1);
+    assert.equal(alarms[0].provider, "stenungsund");
+    assert.match(alarms[0].detail, /ETIMEDOUT/);
+  });
+});
