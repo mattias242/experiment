@@ -1,5 +1,7 @@
 .git
 probe-api.js
 README.md
+FEATURES.md
+test
 Dockerfile
 docker-compose.yml

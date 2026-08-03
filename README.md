@@ -36,6 +36,19 @@ webbläsare annars stoppar anropen (CORS). Ingen npm-installation krävs.
 Datumen hämtas live vid varje besök; det finns inget inlagt reservschema. Går
 tjänsten inte att nå säger sidan det rakt ut i stället för att visa gamla datum.
 
+## Tester och arbetssätt
+
+Appens beteenden är dokumenterade som BDD-scenarier i [FEATURES.md](FEATURES.md).
+Serverbeteendena är körbara med Nodes inbyggda testrigg – inga beroenden:
+
+```sh
+node --test
+```
+
+Utveckling sker trunk-based enligt TDD: testet skrivs först (RED), minsta
+möjliga implementation gör det grönt (GREEN), och varje grönt steg committas
+direkt på `main`.
+
 ## Innehåll
 
 - **Kommun- och adressökning** — välj kommun/bolag, sök adress och hämta aktuella
