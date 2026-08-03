@@ -28,6 +28,19 @@ const PROVIDERS = {
 const PORT = process.env.PORT || 8080;
 const ALLOWED = new Set(["SearchAdress", "GetWastePickupSchedule"]);
 
+// Explicit lista över det som får serveras – allt annat (inklusive den här
+// filen) ger 404, så inget path traversal-skydd behöver "räcka till".
+const FONT_HEADERS = {
+  "Content-Type": "font/woff2",
+  // Typsnittet är versionerat i filnamnet och ändras inte – låt det cachas.
+  "Cache-Control": "public, max-age=31536000, immutable"
+};
+const STATIC = {
+  "/": { file: "index.html", headers: { "Content-Type": "text/html; charset=utf-8" } },
+  "/index.html": { file: "index.html", headers: { "Content-Type": "text/html; charset=utf-8" } },
+  "/familjen-grotesk.woff2": { file: "familjen-grotesk.woff2", headers: FONT_HEADERS }
+};
+
 // Hanteraren skapas via en fabrik så att testerna kan köra den på en egen
 // port och byta ut fetch mot en stub som aldrig går ut på nätet.
 function createHandler({ fetchImpl = fetch } = {}) {
@@ -76,17 +89,11 @@ function createHandler({ fetchImpl = fetch } = {}) {
     return;
   }
 
-  const file = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-  const safe = path.normalize(file).replace(/^(\.\.[/\\])+/, "");
-  fs.readFile(path.join(__dirname, safe), (err, data) => {
+  const entry = STATIC[url.pathname];
+  if (!entry) { res.writeHead(404).end("Not found"); return; }
+  fs.readFile(path.join(__dirname, entry.file), (err, data) => {
     if (err) { res.writeHead(404).end("Not found"); return; }
-    const type = safe.endsWith(".html") ? "text/html; charset=utf-8"
-      : safe.endsWith(".js") ? "text/javascript"
-      : safe.endsWith(".woff2") ? "font/woff2" : "application/octet-stream";
-    const headers = { "Content-Type": type };
-    // Typsnittet är versionerat i filnamnet och ändras inte – låt det cachas.
-    if (safe.endsWith(".woff2")) headers["Cache-Control"] = "public, max-age=31536000, immutable";
-    res.writeHead(200, headers);
+    res.writeHead(200, entry.headers);
     res.end(data);
   });
   };

@@ -37,3 +37,39 @@ describe("Egenskap: appen serveras till besökaren", () => {
     assert.equal(res.status, 404);
   });
 });
+
+describe("Egenskap: bara appens egna filer exponeras", () => {
+  let server;
+  before(async () => { server = await startServer(); });
+  after(() => server.close());
+
+  it("Givet att serverkoden ligger i samma katalog, när någon försöker hämta den, så vägras det", async () => {
+    for (const p of ["/server.js", "/probe-api.js", "/README.md", "/docker-compose.yml"]) {
+      const res = await fetch(base(server) + p);
+      assert.equal(res.status, 404, p + " ska inte serveras");
+    }
+  });
+
+  it("Givet en angripare, när hen försöker gå utanför webbroten, så vägras det", async () => {
+    // fetch normaliserar "../" i URL:er, så traversal-försöken skickas som
+    // råa request-rader direkt på socketen.
+    const attempts = [
+      "/../server.js",
+      "/../../etc/passwd",
+      "/..%2f..%2fetc/passwd",
+      "/%2e%2e/server.js",
+      "//etc/passwd",
+      "/foo/../server.js"
+    ];
+    for (const p of attempts) {
+      const status = await new Promise((resolve, reject) => {
+        const req = http.request({
+          host: "127.0.0.1", port: server.address().port, path: p, method: "GET"
+        }, res => { res.resume(); resolve(res.statusCode); });
+        req.on("error", reject);
+        req.end();
+      });
+      assert.equal(status, 404, p + " ska vägras");
+    }
+  });
+});
