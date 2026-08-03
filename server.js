@@ -1,11 +1,30 @@
 // Minimal server utan beroenden: serverar index.html och proxar API-anrop
-// till kommunens EDP FutureWeb-tjänst (webbläsaren stoppas annars av CORS).
+// till kommunernas EDP FutureWeb-tjänster (webbläsaren stoppas annars av CORS).
 // Start: node server.js  →  http://localhost:8080
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const API_BASE = "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup";
+// Måste hållas i synk med PROVIDERS i index.html.
+const PROVIDERS = {
+  stenungsund: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup",
+  boden: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup",
+  boras: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup",
+  "herrljunga-vargarda": "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup",
+  kiruna: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup",
+  "kretslopp-sydost": "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup",
+  lidkoping: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup",
+  ljungby: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup",
+  lycksele: "https://future.lycksele.se/FutureWeb/SimpleWastePickup",
+  mark: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup",
+  nvoa: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup",
+  orebro: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup",
+  orust: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup",
+  skelleftea: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup",
+  ssam: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup",
+  uppsalavatten: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup",
+  vafabmiljo: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup"
+};
 const PORT = process.env.PORT || 8080;
 const ALLOWED = new Set(["SearchAdress", "GetWastePickupSchedule"]);
 
@@ -13,8 +32,11 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (url.pathname.startsWith("/api/")) {
-    const endpoint = url.pathname.slice("/api/".length);
-    if (!ALLOWED.has(endpoint)) {
+    // /api/<kommun>/<endpoint>; /api/<endpoint> (äldre klient) → Stenungsund.
+    const parts = url.pathname.slice("/api/".length).split("/");
+    const [providerKey, endpoint] = parts.length === 1 ? ["stenungsund", parts[0]] : parts;
+    const API_BASE = PROVIDERS[providerKey];
+    if (!API_BASE || !ALLOWED.has(endpoint)) {
       res.writeHead(404).end("Unknown endpoint");
       return;
     }
