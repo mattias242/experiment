@@ -503,6 +503,10 @@
           <code>https://notify.neomeda.eu</code></li>
         <li>Välj <em>Add subscription</em> och prenumerera på topicet
           <code id="remind-topic"></code></li>
+        <li>
+          <button class="btn btn-quiet" type="button" id="remind-test-btn">Skicka en testnotis</button>
+          <span class="field-help" id="remind-test-result" role="status"></span>
+        </li>
       </ol>
       <p class="field-help">
         Klart! Ingen app? Det går också att
@@ -938,6 +942,9 @@
     setStatus(message || "Skriv in din adress för att se nästa hämtdag.");
   }
   function setStatus(text, kind) {
+    // Tom text betyder "inget att säga" – då göms hela raden (inklusive
+    // statuspunkten) i stället för att en tom ruta tar plats.
+    el("status").hidden = !text;
     el("status").className = "status" + (kind ? " " + kind : "");
     el("status-text").textContent = text;
     el("status-extra").textContent = "";
@@ -1030,7 +1037,9 @@
 
       renderServices(services);
       el("next-card").hidden = false;
-      setStatus("Aktuella datum från " + new URL(provider().base).hostname + ".", "live");
+      // Lyckade hämtningar är tysta – källan står redan i sidfoten, och
+      // statusraden är reserverad för sådant som kräver besökarens blick.
+      setStatus("");
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ p: providerKey, b: building })); } catch (e) {}
       el("address").value = displayAddress(building);
       showResults(building);
@@ -1068,7 +1077,28 @@
     el("remind-steps").hidden = false;
     el("remind-topic").textContent = topic;
     el("remind-web-link").href = "https://notify.neomeda.eu/" + topic;
+    el("remind-test-result").textContent = "";
+    el("remind-test-btn").disabled = false;
   }
+  el("remind-test-btn").addEventListener("click", async () => {
+    const btn = el("remind-test-btn");
+    const result = el("remind-test-result");
+    btn.disabled = true;
+    result.textContent = "Skickar …";
+    try {
+      const saved = savedRemind();
+      const res = await fetch("/api/remind/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: saved && saved.topic })
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      result.textContent = "Skickad! Kolla mobilen.";
+    } catch (err) {
+      result.textContent = "Gick inte att skicka just nu. Försök igen om en stund.";
+    }
+    btn.disabled = false;
+  });
   function updateRemindCard(building) {
     remindBuilding = building;
     // Utan server finns ingen påminnelsetjänst (sidan öppnad som fil).

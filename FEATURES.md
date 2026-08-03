@@ -76,10 +76,11 @@ Scenario: Paketkommunernas fack förklaras
 ## Egenskap: Ärliga statusbesked
 
 ```gherkin
-Scenario: Livedata markeras som live
+Scenario: Lyckade hämtningar är tysta
   Givet att kommunens tjänst svarar
   När datumen visas
-  Så anger statusraden vilken källa de hämtats från
+  Så visas ingen statusrad alls – källan står i sidfoten, och statusraden
+  är reserverad för pågående arbete och problem
 
 Scenario: Fel döljs inte
   Givet att kommunens tjänst inte går att nå
@@ -96,6 +97,12 @@ Scenario: Besökaren slår på påminnelser
   Så registreras adressen och besökaren guidas att hämta ntfy-appen
   (Android/iPhone) och prenumerera på ett eget slumpat topic hamtning-<id>
   – topicnamnet avslöjar ingenting om adressen
+
+Scenario: Besökaren kan testa sin prenumeration
+  Givet att instruktionerna visas med ett registrerat topic
+  När besökaren trycker "Skicka en testnotis"
+  Så skickas en testnotis till just det topicet som förklarar sig själv
+  Men okända topics vägras – endpointen kan inte spamma andras topics
 
 Scenario: Pushen går ut kvällen före
   Givet en registrerad adress med tömning imorgon
