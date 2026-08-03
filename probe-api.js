@@ -1,61 +1,76 @@
-// Testar vilka EDP FutureWeb-endpoints som svarar på Stenungsunds instans.
-// Körs från ett nätverk som når futureweb.stenungsund.se (t.ex. hemifrån):
-//   node probe-api.js [adress]
-// Jämför utfallet med dokumentationen på https://webtest01.edp.se/FutureWebApiDoc/
-const HOST = "https://futureweb.stenungsund.se";
-const ADDRESS = process.argv[2] || "Näs Byväg 7";
+// Testar SearchAdress + GetWastePickupSchedule mot alla kända EDP FutureWeb-
+// instanser, eller en enskild:
+//   node probe-api.js                      → alla, med vanliga gatunamn
+//   node probe-api.js orebro               → en kommun, med vanliga gatunamn
+//   node probe-api.js orebro "Storgatan 3" → en kommun, egen adress
+const PROVIDERS = {
+  stenungsund: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup",
+  boden: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup",
+  boras: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup",
+  "herrljunga-vargarda": "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup",
+  kiruna: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup",
+  "kretslopp-sydost": "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup",
+  lidkoping: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup",
+  ljungby: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup",
+  lycksele: "https://future.lycksele.se/FutureWeb/SimpleWastePickup",
+  mark: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup",
+  nvoa: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup",
+  orebro: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup",
+  orust: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup",
+  skelleftea: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup",
+  ssam: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup",
+  uppsalavatten: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup",
+  vafabmiljo: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup"
+};
+// Vanliga gatunamn som finns i de flesta tätorter – används när ingen adress anges.
+const CANDIDATES = ["Storgatan", "Kyrkvägen", "Skolvägen", "Strandvägen", "Ringvägen"];
 
-// Kandidater: SimpleWastePickup-modulen (känd från öppen källkod) under båda
-// installationsvarianterna, plus dokumentationsappen och några närliggande
-// modulnamn som förekommer i andra kommuners EDP-installationer.
-// GetWastePickupSchedule kräver den fullständiga anläggningssträngen från
-// SearchAdress ("Adress, Ort (nummer)") — bara gatuadress ger Runtime Error.
-async function resolveBuilding() {
+const [, , onlyProvider, customAddress] = process.argv;
+
+async function searchAdress(base, term) {
+  const res = await fetch(base + "/SearchAdress", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "searchText=" + encodeURIComponent(term),
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!res.ok) return { status: res.status };
+  const data = await res.json().catch(() => null);
+  return { status: res.status, buildings: data && data.Buildings || [] };
+}
+
+async function probe(key, base) {
   try {
-    const res = await fetch(HOST + "/FutureWebBasic/SimpleWastePickup/SearchAdress", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "searchText=" + encodeURIComponent(ADDRESS),
-      signal: AbortSignal.timeout(10000)
-    });
-    const data = await res.json();
-    return (data.Buildings && data.Buildings[0]) || ADDRESS;
-  } catch (e) { return ADDRESS; }
+    let building = null, used = null, searchStatus = null;
+    for (const term of customAddress ? [customAddress] : CANDIDATES) {
+      const r = await searchAdress(base, term);
+      searchStatus = r.status;
+      if (r.buildings && r.buildings.length) { building = r.buildings[0]; used = term; break; }
+    }
+    if (!building) {
+      console.log(`${key.padEnd(20)} ✗ SearchAdress ${searchStatus} – ingen träff`);
+      return;
+    }
+    // GetWastePickupSchedule kräver hela anläggningssträngen "Adress, Ort (nummer)".
+    const res = await fetch(base + "/GetWastePickupSchedule?address=" + encodeURIComponent(building),
+      { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) {
+      console.log(`${key.padEnd(20)} ✗ GetWastePickupSchedule HTTP ${res.status} för "${building}"`);
+      return;
+    }
+    const data = await res.json().catch(() => null);
+    const services = data && (data.RhServices || data.rhServices) || [];
+    const sample = services.slice(0, 4).map(s => `${s.WasteType || "?"} → ${s.NextWastePickup || "?"}`).join(" | ");
+    console.log(`${key.padEnd(20)} ✓ "${building}" (sökte: ${used})\n${" ".repeat(21)}  ${sample || "inga tjänster"}`);
+  } catch (err) {
+    console.log(`${key.padEnd(20)} ✗ ${String(err.cause?.code || err.name || err).slice(0, 60)}`);
+  }
 }
 
 (async () => {
-  const building = await resolveBuilding();
-  const PROBES = [
-    { method: "GET",  path: "/FutureWebBasic/SimpleWastePickup/SimpleWastePickup" },
-    { method: "POST", path: "/FutureWebBasic/SimpleWastePickup/SearchAdress", body: "searchText=" + encodeURIComponent(ADDRESS) },
-    { method: "GET",  path: "/FutureWebBasic/SimpleWastePickup/GetWastePickupSchedule?address=" + encodeURIComponent(building) },
-    { method: "GET",  path: "/FutureWeb/SimpleWastePickup/SimpleWastePickup" },
-    { method: "POST", path: "/FutureWeb/SimpleWastePickup/SearchAdress", body: "searchText=" + encodeURIComponent(ADDRESS) },
-    { method: "GET",  path: "/FutureWeb/SimpleWastePickup/GetWastePickupSchedule?address=" + encodeURIComponent(building) },
-    { method: "GET",  path: "/FutureWebApiDoc/" },
-    { method: "GET",  path: "/FutureWebBasic/" },
-    { method: "GET",  path: "/FutureWebBasic/MyPages/MyPages" },
-  ];
-  console.log(`Probar ${HOST} med adress "${ADDRESS}" → anläggning "${building}"\n`);
-  for (const p of PROBES) {
-    const url = HOST + p.path;
-    let line;
-    try {
-      const res = await fetch(url, {
-        method: p.method,
-        headers: p.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {},
-        body: p.body,
-        redirect: "manual",
-        signal: AbortSignal.timeout(10000)
-      });
-      const text = (await res.text()).replace(/\s+/g, " ").slice(0, 120);
-      const type = res.headers.get("content-type") || "";
-      line = `${res.status} ${type.split(";")[0].padEnd(24)} ${text}`;
-    } catch (err) {
-      line = `FEL: ${err.cause?.code || err.name}`;
-    }
-    console.log(`${p.method.padEnd(4)} ${p.path}\n     → ${line}\n`);
+  const keys = onlyProvider ? [onlyProvider] : Object.keys(PROVIDERS);
+  for (const key of keys) {
+    if (!PROVIDERS[key]) { console.log(`Okänd kommun "${key}". Giltiga: ${Object.keys(PROVIDERS).join(", ")}`); return; }
+    await probe(key, PROVIDERS[key]);
   }
-  console.log("Tolkning: 200 + application/json = API-endpoint som finns.");
-  console.log("200 + text/html = webbsida. 404/500 = finns inte i denna installation.");
 })();
