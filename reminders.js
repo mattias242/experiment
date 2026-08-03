@@ -86,6 +86,21 @@ function createReminderService({ dataFile, providers, notify, alarm, fetchImpl =
     if (changed) persist();
   }
 
+  // Testnotisen låter besökaren verifiera sin prenumeration direkt. Bara
+  // registrerade topics går att skicka till – annars vore endpointen ett
+  // sätt att spamma godtyckliga hamtning-topics.
+  async function sendTest(topic) {
+    if (!subs.some(s => s.topic === topic)) return false;
+    await notify({
+      topic,
+      title: "Testnotis – påminnelserna fungerar",
+      body: "Så här ser en påminnelse ut. Nästa riktiga notis kommer kvällen före tömning.",
+      tags: ["wastebasket"],
+      click: APP_URL
+    });
+    return true;
+  }
+
   // Kollar varje halvtimme och agerar bara på kvällen – dedupliceringen via
   // lastSent gör att en omstart mitt i kvällen inte ger dubbletter.
   function start() {
@@ -97,7 +112,7 @@ function createReminderService({ dataFile, providers, notify, alarm, fetchImpl =
     setInterval(tick, CHECK_INTERVAL_MS).unref();
   }
 
-  return { subscribe, checkNow, start };
+  return { subscribe, sendTest, checkNow, start };
 }
 
 module.exports = { createReminderService };

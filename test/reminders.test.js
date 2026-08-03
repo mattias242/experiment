@@ -142,3 +142,25 @@ describe("Egenskap: driftlarmet nås även från påminnelsekontrollen", () => {
     assert.match(alarms[0].detail, /ETIMEDOUT/);
   });
 });
+
+describe("Egenskap: besökaren kan skicka en testnotis till sitt topic", () => {
+  it("Givet en registrerad prenumeration, när testnotisen begärs, så skickas den till rätt topic och förklarar sig själv", async () => {
+    const { service, sent } = rig();
+    const topic = service.subscribe("stenungsund", "Storgatan 1, Orten (123)");
+    const ok = await service.sendTest(topic);
+    assert.equal(ok, true);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].topic, topic);
+    assert.match(sent[0].title, /[Tt]estnotis/);
+    assert.match(sent[0].body, /kvällen före tömning/);
+    assert.match(sent[0].click, /^https:\/\/hamta\.neomeda\.eu/);
+  });
+
+  it("Givet ett topic som ingen registrerat, när testnotisen begärs, så skickas ingenting", async () => {
+    const { service, sent } = rig();
+    service.subscribe("stenungsund", "Storgatan 1, Orten (123)");
+    const ok = await service.sendTest("hamtning-0000000000000000");
+    assert.equal(ok, false);
+    assert.equal(sent.length, 0);
+  });
+});

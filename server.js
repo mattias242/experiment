@@ -78,12 +78,29 @@ function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
 
   // Spärren gäller bara API:t – statiska filer är billiga och cachas ändå.
   if (url.pathname.startsWith("/api/")) {
-    const allowed = url.pathname === "/api/remind" ? limit.remind(clientIp(req)) : limit.api(clientIp(req));
+    const allowed = url.pathname.startsWith("/api/remind") ? limit.remind(clientIp(req)) : limit.api(clientIp(req));
     if (!allowed) {
       res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "60" });
       res.end(JSON.stringify({ error: "För många anrop – vänta en stund." }));
       return;
     }
+  }
+
+  // Testnotis till ett redan registrerat topic, så att besökaren kan
+  // verifiera sin prenumeration direkt.
+  if (url.pathname === "/api/remind/test" && reminders) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Allow": "POST" }).end("Method not allowed");
+      return;
+    }
+    let ok = false;
+    try {
+      const body = JSON.parse(await readBody(req));
+      ok = typeof body.topic === "string" && await reminders.sendTest(body.topic);
+    } catch (err) { /* trasig JSON → ok förblir false → 400 */ }
+    res.writeHead(ok ? 200 : 400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(ok ? { ok: true } : { error: "Okänt topic" }));
+    return;
   }
 
   // Opt-in till tömningspåminnelser: adressen registreras och besökaren får

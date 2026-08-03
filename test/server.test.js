@@ -304,3 +304,32 @@ describe("Egenskap: API:t har en per-IP-spärr", () => {
     allowNext = true;
   });
 });
+
+describe("Egenskap: testnotisen kan begäras via API:t", () => {
+  let server;
+  const tested = [];
+  before(async () => {
+    server = await startServer({ reminders: {
+      subscribe: () => "hamtning-feedfeedfeedfeed",
+      sendTest: async topic => { tested.push(topic); return topic === "hamtning-feedfeedfeedfeed"; }
+    } });
+  });
+  after(() => server.close());
+
+  it("Givet ett registrerat topic, när POST /api/remind/test anropas, så skickas testnotisen", async () => {
+    const res = await fetch(base(server) + "/api/remind/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: "hamtning-feedfeedfeedfeed" })
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(tested, ["hamtning-feedfeedfeedfeed"]);
+  });
+
+  it("Givet ett okänt topic eller trasig body, när testnotisen begärs, så blir svaret 400", async () => {
+    for (const body of [JSON.stringify({ topic: "hamtning-0000000000000000" }), "inte json"]) {
+      const res = await fetch(base(server) + "/api/remind/test", { method: "POST", body });
+      assert.equal(res.status, 400, body);
+    }
+  });
+});
