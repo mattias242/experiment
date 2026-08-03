@@ -164,3 +164,49 @@ describe("Egenskap: proxyn vidarebefordrar bara kända kommun-anrop", () => {
     assert.ok(calls[0].opts.signal instanceof AbortSignal, "fetch ska få en AbortSignal");
   });
 });
+
+describe("Egenskap: opt-in till påminnelser via API:t", () => {
+  let server;
+  const subscriptions = [];
+  const remindersStub = {
+    subscribe: (provider, building) => {
+      if (provider !== "stenungsund" || typeof building !== "string" || !building) return null;
+      subscriptions.push({ provider, building });
+      return "hamtning-deadbeefdeadbeef";
+    }
+  };
+  before(async () => { server = await startServer({ reminders: remindersStub }); });
+  after(() => server.close());
+
+  it("Givet en giltig anmälan, när den POSTas till /api/remind, så svarar servern med topic och serveradress", async () => {
+    const res = await fetch(base(server) + "/api/remind", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: "stenungsund", building: "Storgatan 1, Orten (123)" })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.topic, "hamtning-deadbeefdeadbeef");
+    assert.equal(data.server, "https://notify.neomeda.eu");
+    assert.deepEqual(subscriptions.at(-1), { provider: "stenungsund", building: "Storgatan 1, Orten (123)" });
+  });
+
+  it("Givet en ogiltig anmälan, när kommunen är okänd eller bodyn trasig, så blir svaret 400", async () => {
+    for (const body of [JSON.stringify({ provider: "finnsinte", building: "X 1" }), "inte json", "{}"]) {
+      const res = await fetch(base(server) + "/api/remind", { method: "POST", body });
+      assert.equal(res.status, 400, body);
+    }
+  });
+
+  it("Givet andra metoder än POST, när de används mot /api/remind, så blir svaret 405", async () => {
+    const res = await fetch(base(server) + "/api/remind");
+    assert.equal(res.status, 405);
+  });
+
+  it("Givet en server utan påminnelsetjänst, när /api/remind anropas, så blir svaret 404 som allt annat okänt", async () => {
+    const bare = await startServer();
+    const res = await fetch(base(bare) + "/api/remind", { method: "POST", body: "{}" });
+    assert.equal(res.status, 404);
+    bare.close();
+  });
+});

@@ -44,11 +44,49 @@ const STATIC = {
   "/familjen-grotesk.woff2": { file: "familjen-grotesk.woff2", headers: FONT_HEADERS }
 };
 
+// Läser hela request-bodyn, eller null om den är orimligt stor.
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "", size = 0;
+    req.on("data", c => {
+      if (data === null) return;
+      size += c.length;
+      // En adressökning är några hundra byte – allt större är oseriöst.
+      if (size > MAX_BODY) { data = null; resolve(null); return; }
+      data += c;
+    });
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+}
+
 // Hanteraren skapas via en fabrik så att testerna kan köra den på en egen
-// port och byta ut fetch mot en stub som aldrig går ut på nätet.
-function createHandler({ fetchImpl = fetch } = {}) {
+// port och byta ut fetch och påminnelsetjänsten mot stubbar.
+function createHandler({ fetchImpl = fetch, reminders } = {}) {
   return async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // Opt-in till tömningspåminnelser: adressen registreras och besökaren får
+  // sitt ntfy-topic tillbaka. Utan påminnelsetjänst finns endpointen inte.
+  if (url.pathname === "/api/remind" && reminders) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Allow": "POST" }).end("Method not allowed");
+      return;
+    }
+    let topic = null;
+    try {
+      const body = JSON.parse(await readBody(req));
+      topic = reminders.subscribe(body.provider, body.building);
+    } catch (err) { /* trasig JSON → topic förblir null → 400 */ }
+    if (!topic) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Ogiltig anmälan" }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ topic, server: "https://notify.neomeda.eu" }));
+    return;
+  }
 
   if (url.pathname.startsWith("/api/")) {
     if (req.method !== "GET" && req.method !== "POST") {
@@ -65,20 +103,7 @@ function createHandler({ fetchImpl = fetch } = {}) {
       return;
     }
     try {
-      const body = req.method === "POST"
-        ? await new Promise((resolve, reject) => {
-            let data = "", size = 0;
-            req.on("data", c => {
-              if (data === null) return;
-              size += c.length;
-              // En adressökning är några hundra byte – allt större är oseriöst.
-              if (size > MAX_BODY) { data = null; resolve(null); return; }
-              data += c;
-            });
-            req.on("end", () => resolve(data));
-            req.on("error", reject);
-          })
-        : undefined;
+      const body = req.method === "POST" ? await readBody(req) : undefined;
       if (body === null) {
         res.writeHead(413).end("Request body too large");
         return;
@@ -123,7 +148,15 @@ function createHandler({ fetchImpl = fetch } = {}) {
 module.exports = { createHandler, PROVIDERS };
 
 if (require.main === module) {
-  http.createServer(createHandler()).listen(PORT, () => {
+  const { createNotifier } = require("./notify.js");
+  const { createReminderService } = require("./reminders.js");
+  const reminders = createReminderService({
+    dataFile: path.join(process.env.DATA_DIR || path.join(__dirname, "data"), "reminders.json"),
+    providers: PROVIDERS,
+    notify: createNotifier()
+  });
+  reminders.start();
+  http.createServer(createHandler({ reminders })).listen(PORT, () => {
     console.log(`Hämtschema-appen körs på http://localhost:${PORT}`);
   });
 }
