@@ -1034,11 +1034,12 @@
   el("kommun").addEventListener("change", () => {
     providerKey = el("kommun").value;
     setContext();
-    hideMatches();
-    el("next-card").hidden = true;
-    el("services").hidden = true;
-    setStatus("Skriv in en adress hos " + provider().label + ".");
-    if (provider().fyrfack) renderBins(null);
+    // En adress hör till sin kommun – vid byte rensas den och formuläret
+    // visas igen, även om besökaren stod i resultatvyn.
+    el("address").value = "";
+    el("address").removeAttribute("aria-invalid");
+    showAddressForm("Skriv in en adress hos " + provider().label + ".");
+    el("address").focus();
   });
 
   // Sparat val ({kommun, adress}, eller bara adress från äldre version) →

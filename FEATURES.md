@@ -18,6 +18,12 @@ Scenario: Senaste valet minns
   Givet att besökaren tidigare valt kommun och adress
   När sidan öppnas igen i samma webbläsare
   Så är kommunen förvald och schemat hämtas direkt för den sparade adressen
+
+Scenario: Byte av kommun rensar adressen
+  Givet att en adress är ifylld eller ett schema visas
+  När besökaren byter kommun i väljaren
+  Så töms adressfältet och adressformuläret visas igen med fokus i fältet
+  (en adress hör till sin kommun och följer inte med vid byte)
 ```
 
 ## Egenskap: Adressökning
