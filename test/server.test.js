@@ -25,6 +25,12 @@ describe("Egenskap: appen serveras till besökaren", () => {
     assert.match(await res.text(), /töms mitt kärl/i);
   });
 
+  it("Givet en besökare, när webbläsaren hämtar logikmodulen, så serveras den som javascript", async () => {
+    const res = await fetch(base(server) + "/logic.js");
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type"), /javascript/);
+  });
+
   it("Givet en besökare, när webbläsaren hämtar typsnittet, så cachas det som oföränderligt", async () => {
     const res = await fetch(base(server) + "/familjen-grotesk.woff2");
     assert.equal(res.status, 200);

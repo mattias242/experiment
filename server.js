@@ -40,6 +40,7 @@ const FONT_HEADERS = {
 const STATIC = {
   "/": { file: "index.html", headers: { "Content-Type": "text/html; charset=utf-8" } },
   "/index.html": { file: "index.html", headers: { "Content-Type": "text/html; charset=utf-8" } },
+  "/logic.js": { file: "logic.js", headers: { "Content-Type": "text/javascript; charset=utf-8" } },
   "/familjen-grotesk.woff2": { file: "familjen-grotesk.woff2", headers: FONT_HEADERS }
 };
 
