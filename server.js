@@ -28,7 +28,10 @@ const PROVIDERS = {
 const PORT = process.env.PORT || 8080;
 const ALLOWED = new Set(["SearchAdress", "GetWastePickupSchedule"]);
 
-const server = http.createServer(async (req, res) => {
+// Hanteraren skapas via en fabrik så att testerna kan köra den på en egen
+// port och byta ut fetch mot en stub som aldrig går ut på nätet.
+function createHandler({ fetchImpl = fetch } = {}) {
+  return async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (url.pathname.startsWith("/api/")) {
@@ -54,7 +57,7 @@ const server = http.createServer(async (req, res) => {
         "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)"
       };
       if (body) headers["Content-Type"] = req.headers["content-type"] || "application/x-www-form-urlencoded";
-      const upstream = await fetch(API_BASE + "/" + endpoint + url.search, {
+      const upstream = await fetchImpl(API_BASE + "/" + endpoint + url.search, {
         method: req.method,
         headers,
         body
@@ -86,8 +89,13 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, headers);
     res.end(data);
   });
-});
+  };
+}
 
-server.listen(PORT, () => {
-  console.log(`Hämtschema-appen körs på http://localhost:${PORT}`);
-});
+module.exports = { createHandler, PROVIDERS };
+
+if (require.main === module) {
+  http.createServer(createHandler()).listen(PORT, () => {
+    console.log(`Hämtschema-appen körs på http://localhost:${PORT}`);
+  });
+}
