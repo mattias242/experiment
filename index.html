@@ -599,6 +599,12 @@
         "fyrfack 2": ["Pappersförpackningar", "Plastförpackningar", "Ofärgat glas", "Tidningar"]
       }
     },
+    hassleholm: {
+      label: "Hässleholm (Hässleholm Miljö)",
+      kind: "appbolaget",
+      base: "https://api-universal.appbolaget.se",
+      site: "https://hassleholmmiljo.se/privat/sophamtning/tomningskalender"
+    },
     "herrljunga-vargarda": {
       label: "Herrljunga & Vårgårda (Remondis)",
       base: "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup",
@@ -785,7 +791,12 @@
   // Direktanrop fungerar bara om tjänsten tillåter CORS; annars behövs
   // proxyn i server.js (sökväg /api/<kommun>).
   function apiBases() {
-    return ["/api/" + providerKey, provider().base];
+    // Direktanropet som andrahandsval fungerar bara för EDP-instanserna, som
+    // talar samma anropsform som appen. Leverantörer med adapter måste gå via
+    // proxyn – annars kommer svaret tillbaka i fel form och tolkas som skräp.
+    return provider().kind && provider().kind !== "edp"
+      ? ["/api/" + providerKey]
+      : ["/api/" + providerKey, provider().base];
   }
 
   const todayStr = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());

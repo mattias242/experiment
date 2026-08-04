@@ -130,13 +130,13 @@ function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
         return;
       }
       // Adaptern översätter appens anrop till leverantörens API. För EDP är
-      // det en ren vidarebefordran; för andra byggs anropet om.
-      const call = adapter.request(provider, endpoint, {
-        search: url.search,
-        method: req.method,
-        body: clientBody,
-        contentType: req.headers["content-type"]
-      });
+      // det en ren vidarebefordran; för andra byggs anropet om. Somliga
+      // behöver dessutom slå upp en identifierare först.
+      const params = { search: url.search, method: req.method, body: clientBody, contentType: req.headers["content-type"] };
+      if (adapter.resolve) {
+        params.resolved = await adapter.resolve(provider, endpoint, params, { fetchImpl, timeoutMs: UPSTREAM_TIMEOUT_MS });
+      }
+      const call = adapter.request(provider, endpoint, params);
       const upstream = await fetchImpl(call.url, {
         method: call.method,
         headers: call.headers,

@@ -82,7 +82,8 @@ const VERIFIED_2026_08_04 = {
 // Kommuner på andra plattformar än EDP. De kräver var sin adapter, så här
 // står sorten med – en felaktig sort ger tyst fel svar, inte ett undantag.
 const VERIFIED_OTHER = {
-  lsr: { kind: "exde", base: "https://minasidor.lsr.nu/api/api/external" }
+  lsr: { kind: "exde", base: "https://minasidor.lsr.nu/api/api/external" },
+  hassleholm: { kind: "appbolaget", base: "https://api-universal.appbolaget.se" }
 };
 
 describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {

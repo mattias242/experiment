@@ -10,7 +10,7 @@ const { PROVIDERS, adapterFor, fetchSchedule } = require("../adapters.js");
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp", "exde"]);
+    const kinds = new Set(["edp", "exde", "appbolaget"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -86,6 +86,102 @@ describe("Egenskap: EXDE-tjänster översätts till appens form", () => {
   it("Givet ett tomt svar, när det normaliseras, så blir det en tom lista i stället för ett fel", () => {
     assert.deepEqual(JSON.parse(adapterFor(exde).normalize("GetWastePickupSchedule", "[]")).RhServices, []);
     assert.deepEqual(JSON.parse(adapterFor(exde).normalize("SearchAdress", "[]")).Buildings, []);
+  });
+});
+
+describe("Egenskap: Appbolaget-tjänster översätts till appens form", () => {
+  const ab = {
+    kind: "appbolaget",
+    base: "https://api-universal.appbolaget.se",
+    unit: "e34d7050-1b2a-4917-a921-0ea7742d0a6e"
+  };
+
+  it("Givet en adressökning, när anropet byggs, så väljs rätt kommun med Unit-headern", () => {
+    const r = adapterFor(ab).request(ab, "SearchAdress", { search: "?searchText=Storgatan", method: "POST" });
+    assert.equal(r.url, ab.base + "/waste/addresses/search?query=Storgatan");
+    assert.equal(r.method, "GET");
+    assert.equal(r.headers["Unit"], ab.unit);
+    assert.equal(r.headers["Module"], "universal");
+  });
+
+  it("Givet sökträffar, när de normaliseras, så får varje adress med sitt id i den form appen redan hanterar", () => {
+    // Sökningen ger bara adressens uuid – fastighetsnumret som schemat slås
+    // upp på finns inte med, och måste hämtas i ett andra steg.
+    const svar = JSON.stringify({ data: [
+      { uuid: "abc-123", address: "STORGATAN 1", city: "VINSLÖV", designation: "LOKET 3" }
+    ]});
+    const ut = JSON.parse(adapterFor(ab).normalize("SearchAdress", svar));
+    assert.equal(ut.Succeeded, true);
+    // Appen visar adressen utan parentesen och skickar tillbaka hela strängen.
+    assert.equal(ut.Buildings[0], "STORGATAN 1, VINSLÖV (abc-123)");
+  });
+
+  it("Givet en vald adress, när fastighetsnumret slås upp, så sker det via adressens uuid", async () => {
+    const anrop = [];
+    const fetchImpl = async (url, opts) => {
+      anrop.push({ url, opts });
+      return new Response(JSON.stringify({ data: { property_id: "0712403013" } }), { status: 200 });
+    };
+    const resolved = await adapterFor(ab).resolve(ab, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("STORGATAN 1, VINSLÖV (abc-123)")
+    }, { fetchImpl });
+    assert.equal(anrop[0].url, ab.base + "/waste/addresses/abc-123");
+    assert.equal(anrop[0].opts.headers["Unit"], ab.unit);
+    assert.equal(resolved.propertyId, "0712403013");
+  });
+
+  it("Givet ett uppslaget fastighetsnummer, när schemat begärs, så används det i sökvägen", () => {
+    const r = adapterFor(ab).request(ab, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("STORGATAN 1, VINSLÖV (abc-123)"),
+      resolved: { propertyId: "0712403013" }
+    });
+    assert.equal(r.url, ab.base + "/@universal/waste/properties/0712403013/?unit=" + ab.unit);
+  });
+
+  it("Givet tömningar i UTC, när de normaliseras, så blir datumet det svenska dygnet", () => {
+    // 22:00 UTC är redan nästa dag i svensk sommartid – tas datumet rakt av
+    // ur tidsstämpeln hamnar tömningen en dag fel.
+    const svar = JSON.stringify({ data: { services: [
+      { code: { code: "KÄRL1", description_verbose: "Fyrfack kärl 1 Plast och Pappersförpackningar" },
+        collections: [{ collection_at: "2026-08-10 22:00:00" }] }
+    ]}});
+    const ut = JSON.parse(adapterFor(ab).normalize("GetWastePickupSchedule", svar, { today: "2026-08-01" }));
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-11");
+    assert.equal(ut.RhServices[0].WasteType, "Fyrfack kärl 1 Plast och Pappersförpackningar");
+  });
+
+  it("Givet en serie med passerade tömningar, när den normaliseras, så visas nästa kommande – inte den första i listan", () => {
+    const svar = JSON.stringify({ data: { services: [
+      { code: { code: "KÄRL2", description_verbose: "Fyrfack kärl 2" }, collections: [
+        { collection_at: "2025-10-15 22:00:00" },
+        { collection_at: "2026-08-20 22:00:00" },
+        { collection_at: "2026-08-06 22:00:00" }
+      ]}
+    ]}});
+    const ut = JSON.parse(adapterFor(ab).normalize("GetWastePickupSchedule", svar, { today: "2026-08-10" }));
+    // 2026-08-06 har passerat och 2025-10-15 likaså; kvar är 20/8 22:00 UTC,
+    // vilket är den 21:a i svensk tid.
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-21");
+  });
+
+  it("Givet en tjänst vars långa namn beskriver en avgift, när den normaliseras, så används det korta namnet", () => {
+    // Hässleholms "HRÖRLIG" har description_verbose "Avgift för tömning av
+    // fyrfackskärl, helår" – en faktureringsrad, inte ett avfallsslag. Det
+    // korta namnet säger vad tömningen faktiskt är.
+    const svar = JSON.stringify({ data: { services: [
+      { code: { code: "HRÖRLIG", description: "Budad hämtning",
+                description_verbose: "Avgift för tömning av fyrfackskärl, helår" },
+        collections: [{ collection_at: "2026-08-30 22:00:00" }] }
+    ]}});
+    const ut = JSON.parse(adapterFor(ab).normalize("GetWastePickupSchedule", svar, { today: "2026-08-10" }));
+    assert.equal(ut.RhServices[0].WasteType, "Budad hämtning");
+  });
+
+  it("Givet en tjänst utan kommande tömningar, när den normaliseras, så utelämnas den", () => {
+    const svar = JSON.stringify({ data: { services: [
+      { code: { code: "HRÖRLIG", description_verbose: "Budad hämtning" }, collections: [] }
+    ]}});
+    assert.deepEqual(JSON.parse(adapterFor(ab).normalize("GetWastePickupSchedule", svar, { today: "2026-08-10" })).RhServices, []);
   });
 });
 
