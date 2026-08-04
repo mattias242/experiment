@@ -44,6 +44,8 @@ const PROVIDERS = {
   mark: { kind: "edp", base: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup" },
   mellerud: { kind: "edp", base: "https://vatten.mellerud.se/EDPFutureWeb/SimpleWastePickup" },
   merab: { kind: "edp", base: "https://edpmobile.merab.se/FutureWeb/SimpleWastePickup" },
+  // NSR har eget API och täcker sex kommuner från en instans.
+  nsr: { kind: "nsr", base: "https://nsr.se/api/wastecalendar" },
   nvoa: { kind: "edp", base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup" },
   orebro: { kind: "edp", base: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup" },
   orust: { kind: "edp", base: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup" },
@@ -112,6 +114,58 @@ const ADAPTERS = {
             NextWastePickup: datum,
             WastePickupFrequency: post.collectionFrequency || "",
             BinType: { Code: post.containerType || "", ContainerType: "", Size: null, Unit: "" }
+          });
+        }
+      }
+      return JSON.stringify({ RhServices: [...tidigast.values()] });
+    }
+  },
+
+  // NSR (nordvästra Skåne). Ett enda sökanrop ger både adressträffar och hela
+  // datumserien. Appen frågar i två steg, så endpointen anropas två gånger –
+  // andra gången för att plocka ut just den valda adressens serie.
+  nsr: {
+    request(provider, endpoint, { search }) {
+      const params = new URLSearchParams(search || "");
+      const fråga = endpoint === "SearchAdress"
+        ? (params.get("searchText") || "")
+        // Adressen kommer tillbaka som "Gatan 1, Ort (id)"; sökningen vill ha
+        // gatuadressen, inte orten eller id:t.
+        : String(params.get("address") || "").replace(/\s*\([^)]*\)\s*$/, "").split(",")[0].trim();
+      return {
+        url: provider.base + "/search?query=" + encodeURIComponent(fråga),
+        method: "GET",
+        headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" }
+      };
+    },
+    normalize(endpoint, text, { today, params } = {}) {
+      const träffar = (JSON.parse(text) || {}).fp || [];
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({
+          Succeeded: true,
+          // Orten skiljer träffarna åt – samma gatunamn finns i flera av de
+          // sex kommunerna NSR täcker.
+          Buildings: träffar.filter(t => t && t.id).map(t => `${t.Adress}, ${t.Ort} (${t.id})`)
+        });
+      }
+      const valdId = idUrParentes(new URLSearchParams((params && params.search) || "").get("address"));
+      const träff = träffar.find(t => t && t.id === valdId);
+      const exec = (träff && träff.Exec) || {};
+      const datum = exec.Datum || [], typer = exec.AvfallsTyp || [], veckor = exec.DatumWeek || [];
+      const idag = today || svenskDatum(new Date());
+      // Arrayerna hör ihop indexvis. Samma avfallsslag återkommer flera gånger
+      // i serien, så det tidigaste kommande datumet per slag är det som gäller.
+      const tidigast = new Map();
+      for (let i = 0; i < datum.length; i++) {
+        const typ = typer[i], d = datum[i];
+        if (!typ || !d || d < idag) continue;
+        const befintlig = tidigast.get(typ);
+        if (!befintlig || d < befintlig.NextWastePickup) {
+          tidigast.set(typ, {
+            WasteType: typ,
+            NextWastePickup: d,
+            WastePickupFrequency: veckor[i] || "",
+            BinType: { Code: "", ContainerType: "", Size: null, Unit: "" }
           });
         }
       }
@@ -236,7 +290,7 @@ async function fetchSchedule(provider, building, { fetchImpl = fetch, timeoutMs 
     err.status = res.status;
     throw err;
   }
-  return JSON.parse(adapter.normalize("GetWastePickupSchedule", await res.text()));
+  return JSON.parse(adapter.normalize("GetWastePickupSchedule", await res.text(), { params }));
 }
 
 module.exports = { PROVIDERS, ADAPTERS, adapterFor, fetchSchedule, UPSTREAM_TIMEOUT_MS };

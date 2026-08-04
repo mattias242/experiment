@@ -718,6 +718,15 @@
       // kärl, så här står inga packages – hellre kommunens egen etikett än
       // en gissning byggd på hur andra kommuner sorterar.
     },
+    nsr: {
+      label: "NSR (Helsingborg, Bjuv, Båstad, Höganäs, Åstorp, Ängelholm)",
+      kind: "nsr",
+      base: "https://nsr.se/api/wastecalendar",
+      site: "https://nsr.se/privat/allt-om-din-sophamtning/nar-toms-mitt-karl/tomningskalender/"
+      // Inga packages här: NSR:s "KÄRL 1"/"KÄRL 2" innehåller olika fraktioner
+      // i Helsingborg än i Båstad, Bjuv, Åstorp och Ängelholm. En enda
+      // mappning för hela instansen skulle vara fel för halva täckningen.
+    },
     nvoa: {
       label: "Nacka (Nacka vatten och avfall)",
       base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup",

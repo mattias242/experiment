@@ -10,7 +10,7 @@ const { PROVIDERS, adapterFor, fetchSchedule } = require("../adapters.js");
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp", "exde", "appbolaget"]);
+    const kinds = new Set(["edp", "exde", "appbolaget", "nsr"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -182,6 +182,71 @@ describe("Egenskap: Appbolaget-tjänster översätts till appens form", () => {
       { code: { code: "HRÖRLIG", description_verbose: "Budad hämtning" }, collections: [] }
     ]}});
     assert.deepEqual(JSON.parse(adapterFor(ab).normalize("GetWastePickupSchedule", svar, { today: "2026-08-10" })).RhServices, []);
+  });
+});
+
+describe("Egenskap: NSR:s enda anrop översätts till appens två steg", () => {
+  const nsr = { kind: "nsr", base: "https://nsr.se/api/wastecalendar" };
+  // Ett enda sökanrop ger både adressträffar och hela datumserien. Appen
+  // frågar i två steg, så samma endpoint anropas två gånger – andra gången
+  // för att plocka ut just den valda adressens serie.
+  const svar = JSON.stringify({ fp: [
+    { id: "abc123", Adress: "Storgatan 1", Ort: "Ekeby", Exec: {
+      Datum: ["2026-08-06", "2026-08-13", "2026-08-18", "2026-08-20"],
+      AvfallsTyp: ["KÄRL 1", "Trädgårdsavfall", "KÄRL 2", "KÄRL 1"],
+      DatumWeek: ["Jämna veckor", "Udda veckor", "Jämna veckor", "Jämna veckor"]
+    }},
+    { id: "def456", Adress: "Storgatan 1", Ort: "Åstorp", Exec: {
+      Datum: ["2026-08-07"], AvfallsTyp: ["KÄRL 1"], DatumWeek: ["Udda veckor"]
+    }}
+  ]});
+
+  it("Givet en adressökning, när anropet byggs, så frågas sökendpointen", () => {
+    const r = adapterFor(nsr).request(nsr, "SearchAdress", { search: "?searchText=Storgatan 1" });
+    assert.equal(r.url, nsr.base + "/search?query=Storgatan%201");
+    assert.equal(r.method, "GET");
+  });
+
+  it("Givet flera orter, när träffarna normaliseras, så skiljs de åt med ort och id", () => {
+    const ut = JSON.parse(adapterFor(nsr).normalize("SearchAdress", svar));
+    assert.equal(ut.Succeeded, true);
+    assert.deepEqual(ut.Buildings, ["Storgatan 1, Ekeby (abc123)", "Storgatan 1, Åstorp (def456)"]);
+  });
+
+  it("Givet en vald adress, när schemat begärs, så söks adressen utan id:t", () => {
+    const r = adapterFor(nsr).request(nsr, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("Storgatan 1, Ekeby (abc123)")
+    });
+    assert.equal(r.url, nsr.base + "/search?query=Storgatan%201");
+  });
+
+  it("Givet serien för flera adresser, när den normaliseras, så används bara den valda adressens id", () => {
+    const ut = JSON.parse(adapterFor(nsr).normalize("GetWastePickupSchedule", svar, {
+      today: "2026-08-05",
+      params: { search: "?address=" + encodeURIComponent("Storgatan 1, Ekeby (abc123)") }
+    }));
+    const typer = ut.RhServices.map(s => s.WasteType).sort();
+    assert.deepEqual(typer, ["KÄRL 1", "KÄRL 2", "Trädgårdsavfall"]);
+    // Tidigaste kommande datum per avfallsslag – KÄRL 1 finns två gånger.
+    assert.equal(ut.RhServices.find(s => s.WasteType === "KÄRL 1").NextWastePickup, "2026-08-06");
+    assert.equal(ut.RhServices.find(s => s.WasteType === "KÄRL 2").NextWastePickup, "2026-08-18");
+  });
+
+  it("Givet passerade datum, när serien normaliseras, så räknas bara det som återstår", () => {
+    const ut = JSON.parse(adapterFor(nsr).normalize("GetWastePickupSchedule", svar, {
+      today: "2026-08-19",
+      params: { search: "?address=" + encodeURIComponent("Storgatan 1, Ekeby (abc123)") }
+    }));
+    assert.deepEqual(ut.RhServices.map(s => s.WasteType), ["KÄRL 1"]);
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-20");
+  });
+
+  it("Givet ett id som inte finns i svaret, när schemat normaliseras, så blir listan tom", () => {
+    const ut = JSON.parse(adapterFor(nsr).normalize("GetWastePickupSchedule", svar, {
+      today: "2026-08-05",
+      params: { search: "?address=" + encodeURIComponent("Nygatan 9, Bjuv (saknas)") }
+    }));
+    assert.deepEqual(ut.RhServices, []);
   });
 });
 

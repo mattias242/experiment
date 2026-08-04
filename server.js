@@ -156,7 +156,9 @@ function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
         return;
       }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(adapter.normalize(endpoint, text));
+      // Somliga adaptrar behöver veta vad som frågades efter för att kunna
+      // plocka rätt del ur svaret.
+      res.end(adapter.normalize(endpoint, text, { params }));
     } catch (err) {
       console.error(`Proxyfel mot ${providerKey}/${endpoint}:`, err.cause || err);
       if (alarm) alarm(providerKey, `${String(err.cause || err)} vid ${endpoint}.`);

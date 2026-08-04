@@ -120,7 +120,8 @@ const VERIFIED_2026_08_04 = {
 // står sorten med – en felaktig sort ger tyst fel svar, inte ett undantag.
 const VERIFIED_OTHER = {
   lsr: { kind: "exde", base: "https://minasidor.lsr.nu/api/api/external" },
-  hassleholm: { kind: "appbolaget", base: "https://api-universal.appbolaget.se" }
+  hassleholm: { kind: "appbolaget", base: "https://api-universal.appbolaget.se" },
+  nsr: { kind: "nsr", base: "https://nsr.se/api/wastecalendar" }
 };
 
 describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {
