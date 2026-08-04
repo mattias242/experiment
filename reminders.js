@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { reminderFor } = require("./logic.js");
+const { fetchSchedule } = require("./adapters.js");
 
 const MAX_SUBSCRIPTIONS = 200;
 const MAX_BUILDING_LEN = 200;
@@ -62,17 +63,11 @@ function createReminderService({ dataFile, providers, notify, alarm, fetchImpl =
     for (const sub of subs) {
       if (sub.lastSent === today) continue;
       try {
-        const url = providers[sub.provider] + "/GetWastePickupSchedule?address=" + encodeURIComponent(sub.building);
-        const res = await fetchImpl(url, {
-          headers: { "Accept": "application/json" },
-          signal: AbortSignal.timeout(SCHEDULE_TIMEOUT_MS)
+        // Adaptern vet hur just den här kommunens tjänst anropas och ger
+        // tillbaka schemat i appens form, oavsett leverantör.
+        const data = await fetchSchedule(providers[sub.provider], sub.building, {
+          fetchImpl, timeoutMs: SCHEDULE_TIMEOUT_MS
         });
-        if (!res.ok) {
-          log.error(`Påminnelse ${sub.topic}: HTTP ${res.status} från ${sub.provider}`);
-          if (alarm && res.status >= 500) alarm(sub.provider, `HTTP ${res.status} vid schemahämtning.`);
-          continue;
-        }
-        const data = await res.json();
         const reminder = reminderFor(data && (data.RhServices || data.rhServices), today);
         if (!reminder) continue;
         await notify({ topic: sub.topic, title: reminder.title, body: reminder.body, tags: ["wastebasket"], click: APP_URL });
@@ -80,7 +75,11 @@ function createReminderService({ dataFile, providers, notify, alarm, fetchImpl =
         changed = true;
       } catch (err) {
         log.error(`Påminnelse ${sub.topic}:`, String(err.cause || err));
-        if (alarm) alarm(sub.provider, `${String(err.cause || err)} vid schemahämtning.`);
+        // 4xx är bara ett svar (t.ex. borttagen adress); 5xx och nätverksfel
+        // är driftfel hos kommunen och värda ett larm.
+        if (alarm && !(err.status >= 400 && err.status < 500)) {
+          alarm(sub.provider, `${String(err.cause || err)} vid schemahämtning.`);
+        }
       }
     }
     if (changed) persist();

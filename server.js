@@ -5,43 +5,10 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { createRateLimiter, clientIp } = require("./ratelimit.js");
+// Kommunlistan och översättningen till varje leverantörs API ligger i
+// adapters.js, så att proxyn och påminnelsetjänsten delar samma källa.
+const { PROVIDERS, adapterFor } = require("./adapters.js");
 
-// Måste hållas i synk med PROVIDERS i index.html.
-const PROVIDERS = {
-  stenungsund: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup",
-  ale: "https://edp.ale.se/FutureWeb/SimpleWastePickup",
-  boden: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup",
-  boras: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup",
-  gotland: "https://edpfuture.gotland.se/FutureWeb/SimpleWastePickup",
-  "herrljunga-vargarda": "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup",
-  hudiksvall: "https://futureweb.hudiksvall.se/FutureWeb/SimpleWastePickup",
-  june: "https://minasidor.juneavfall.se/FutureWebJuneBasic/SimpleWastePickup",
-  kiruna: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup",
-  kramfors: "https://futureweb.kramfors.se/EDPFutureWeb/SimpleWastePickup",
-  "kretslopp-sydost": "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup",
-  kristianstad: "https://edp.kristianstad.se/FutureWeb/SimpleWastePickup",
-  kungalv: "https://minasidor-va-avfall.kungalv.se/FutureWeb/SimpleWastePickup",
-  lerum: "https://vatjanst.lerum.se/FutureWeb/SimpleWastePickup",
-  lidkoping: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup",
-  ludvika: "https://futureweb.wbab.se/EDPFutureWeb/SimpleWastePickup",
-  lund: "https://eservice431601.lund.se/Lund/FutureWeb/SimpleWastePickup",
-  ljungby: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup",
-  lycksele: "https://future.lycksele.se/FutureWeb/SimpleWastePickup",
-  mark: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup",
-  merab: "https://edpmobile.merab.se/FutureWeb/SimpleWastePickup",
-  nvoa: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup",
-  orebro: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup",
-  orust: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup",
-  partille: "https://vatjanst.partille.se/FutureWeb/SimpleWastePickup",
-  skelleftea: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup",
-  solleftea: "https://futureweb.solleftea.se/FutureWeb/SimpleWastePickup",
-  ssam: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup",
-  uppsalavatten: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup",
-  vafabmiljo: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup",
-  // VIVAB kör en egen instans per kommun på samma värd.
-  "vivab-falkenberg": "https://minasidor.vivab.info/FutureWebFalken/SimpleWastePickup",
-  "vivab-varberg": "https://minasidor.vivab.info/FutureWebVarberg/SimpleWastePickup"
-};
 const PORT = process.env.PORT || 8080;
 const ALLOWED = new Set(["SearchAdress", "GetWastePickupSchedule"]);
 const MAX_BODY = 16 * 1024;
@@ -150,26 +117,30 @@ function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
     const parts = url.pathname.slice("/api/".length).split("/");
     const [providerKey, endpoint] = parts.length === 1 ? ["stenungsund", parts[0]] : parts;
     // Object.hasOwn: annars slår "__proto__" m.fl. upp saker på prototypen.
-    const API_BASE = Object.hasOwn(PROVIDERS, providerKey) ? PROVIDERS[providerKey] : undefined;
-    if (parts.length > 2 || !API_BASE || !ALLOWED.has(endpoint)) {
+    const provider = Object.hasOwn(PROVIDERS, providerKey) ? PROVIDERS[providerKey] : undefined;
+    const adapter = adapterFor(provider);
+    if (parts.length > 2 || !adapter || !ALLOWED.has(endpoint)) {
       res.writeHead(404).end("Unknown endpoint");
       return;
     }
     try {
-      const body = req.method === "POST" ? await readBody(req) : undefined;
-      if (body === null) {
+      const clientBody = req.method === "POST" ? await readBody(req) : undefined;
+      if (clientBody === null) {
         res.writeHead(413).end("Request body too large");
         return;
       }
-      const headers = {
-        "Accept": "application/json, text/plain, */*",
-        "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)"
-      };
-      if (body) headers["Content-Type"] = req.headers["content-type"] || "application/x-www-form-urlencoded";
-      const upstream = await fetchImpl(API_BASE + "/" + endpoint + url.search, {
+      // Adaptern översätter appens anrop till leverantörens API. För EDP är
+      // det en ren vidarebefordran; för andra byggs anropet om.
+      const call = adapter.request(provider, endpoint, {
+        search: url.search,
         method: req.method,
-        headers,
-        body,
+        body: clientBody,
+        contentType: req.headers["content-type"]
+      });
+      const upstream = await fetchImpl(call.url, {
+        method: call.method,
+        headers: call.headers,
+        body: call.body,
         // Ge upp i stället för att låta en hängande kommun-tjänst hålla
         // anslutningar öppna hos oss.
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
@@ -180,11 +151,14 @@ function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
         // 5xx är driftfel hos kommunen och värt ett larm; 4xx är bara ett
         // svar (t.ex. okänd adress) och vidarebefordras utan väsen.
         if (alarm && upstream.status >= 500) alarm(providerKey, `HTTP ${upstream.status} vid ${endpoint}.`);
+        res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
+        res.end(text);
+        return;
       }
-      res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
-      res.end(text);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(adapter.normalize(endpoint, text));
     } catch (err) {
-      console.error(`Proxyfel mot ${API_BASE}/${endpoint}:`, err.cause || err);
+      console.error(`Proxyfel mot ${providerKey}/${endpoint}:`, err.cause || err);
       if (alarm) alarm(providerKey, `${String(err.cause || err)} vid ${endpoint}.`);
       res.writeHead(502, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Proxyn kunde inte nå kommunens tjänst", detail: String(err.cause || err) }));

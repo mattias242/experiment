@@ -51,8 +51,8 @@ describe("Egenskap: kommunlistan är densamma i proxyn och i gränssnittet", () 
 
   it("Givet en kommun, när dess bas-URL jämförs mellan listorna, så är den identisk", () => {
     const ui = uiProviders();
-    for (const [key, base] of Object.entries(SERVER_PROVIDERS)) {
-      assert.equal(ui[key].base, base, key + " har olika bas-URL i server.js och index.html");
+    for (const [key, p] of Object.entries(SERVER_PROVIDERS)) {
+      assert.equal(ui[key].base, p.base, key + " har olika bas-URL i server.js och index.html");
     }
   });
 });
@@ -82,7 +82,7 @@ const VERIFIED_2026_08_04 = {
 describe("Egenskap: kommunerna från kartläggningen 2026-08-04 finns med", () => {
   it("Givet de verifierade kommunerna, när listan läses, så finns var och en med sin provade bas-URL", () => {
     for (const [key, base] of Object.entries(VERIFIED_2026_08_04)) {
-      assert.equal(SERVER_PROVIDERS[key], base, key + " saknas eller har en oprövad bas-URL");
+      assert.equal((SERVER_PROVIDERS[key] || {}).base, base, key + " saknas eller har en oprövad bas-URL");
     }
   });
 });
@@ -95,10 +95,14 @@ describe("Egenskap: varje kommun presenteras ärligt för besökaren", () => {
     }
   });
 
-  it("Givet en bas-URL, så pekar den på kommunens EDP-tjänst över https", () => {
-    for (const [key, base] of Object.entries(SERVER_PROVIDERS)) {
-      assert.match(base, /^https:\/\//, key + " ska anropas över https");
-      assert.match(base, /\/SimpleWastePickup$/, key + " ska peka på SimpleWastePickup");
+  it("Givet en bas-URL, så anropas den över https", () => {
+    for (const [key, p] of Object.entries(SERVER_PROVIDERS)) {
+      assert.match(p.base, /^https:\/\//, key + " ska anropas över https");
+      // Sökvägens form beror på leverantören, så bara EDP-instanserna kan
+      // kontrolleras mot SimpleWastePickup.
+      if (p.kind === "edp") {
+        assert.match(p.base, /\/SimpleWastePickup$/, key + " ska peka på SimpleWastePickup");
+      }
     }
   });
 });

@@ -6,7 +6,7 @@ const os = require("os");
 const path = require("path");
 const { createReminderService } = require("../reminders.js");
 
-const PROVIDERS = { stenungsund: "https://example.invalid/SimpleWastePickup" };
+const PROVIDERS = { stenungsund: { kind: "edp", base: "https://example.invalid/SimpleWastePickup" } };
 
 // Ett schema där Kärl 2 töms 6 augusti (imorgon, sett från 5 augusti).
 const SCHEDULE = JSON.stringify({
