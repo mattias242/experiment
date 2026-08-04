@@ -9,12 +9,19 @@ den dagen.
 ## Stödda kommuner
 
 Appen pratar med EDP FutureWeb-tjänsten "SimpleWastePickup" som används av 17
-kommuner/avfallsbolag. Verifierat mot riktiga adresser 2026-08-03:
+kommuner/avfallsbolag. **Alla 17 är verifierade** mot riktiga adresser — adress-
+sökning och schemahämtning gav korrekta datum (2026-08-04):
 
-| Status | Kommun/bolag |
-|---|---|
-| ✅ Verifierade | Stenungsund, Orust, Örebro, Ljungby, Mark, Lycksele, Skellefteå, Borås (BEM), Uppsala (Uppsala vatten), SSAM (Växjö, Alvesta, Lessebo, Markaryd, Tingsryd), Kretslopp Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö, Uppvidinge, Vetlanda), VafabMiljö (Västerås m.fl.), Herrljunga & Vårgårda (Remondis) |
-| ⚠️ Otestade | Boden, Kiruna, Lidköping (nåddes inte från testmiljön – troligen geo-blockering), Nacka/NVOA (brandvägg avvisade testanropen) – samma dokumenterade API, kan fungera från svenska nät |
+Stenungsund, Orust, Örebro, Ljungby, Mark, Lycksele, Skellefteå, Borås (BEM),
+Uppsala (Uppsala vatten), SSAM (Växjö, Alvesta, Lessebo, Markaryd, Tingsryd),
+Kretslopp Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö,
+Uppvidinge, Vetlanda), VafabMiljö (Västerås m.fl.), Herrljunga & Vårgårda
+(Remondis), Boden, Kiruna, Lidköping, Nacka (NVOA).
+
+Boden, Kiruna, Lidköping och Nacka gick inte att nå vid det första testet
+2026-08-03 och var då märkta "(otestad)" i väljaren. Vid omtest 2026-08-04
+svarade alla fyra normalt, så det var sannolikt tillfälligt eller berodde på
+testmiljön – inte på deras API.
 
 Roslagsvatten fanns tidigare på EDP-plattformen men svarar nu 404 på alla
 kända sökvägar och ingår därför inte.

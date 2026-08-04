@@ -12,7 +12,8 @@ Scenario: Kommunerna listas i bokstavsordning
   Givet att appen stöder 17 kommuner/avfallsbolag
   När besökaren öppnar kommunväljaren
   Så listas alla i svensk bokstavsordning (Boden först, Örebro sist)
-  Och instanser som inte kunnat verifieras är märkta "(otestad)"
+  Och en instans som inte kunnat verifieras märks "(otestad)" –
+  för närvarande är alla 17 verifierade
 
 Scenario: Senaste valet minns
   Givet att besökaren tidigare valt kommun och adress
