@@ -34,7 +34,7 @@ describe("Egenskap: söktexten hittas oavsett hur klienten skickar den", () => {
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp", "exde", "appbolaget", "nsr"]);
+    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -291,6 +291,55 @@ describe("Egenskap: NSR:s enda anrop översätts till appens två steg", () => {
       params: { search: "?address=" + encodeURIComponent("Nygatan 9, Bjuv (saknas)") }
     }));
     assert.deepEqual(ut.RhServices, []);
+  });
+});
+
+describe("Egenskap: VA SYD översätts till appens form", () => {
+  const vasyd = { kind: "vasyd", base: "https://www.vasyd.se/api/sitecore/mypagesapi" };
+
+  it("Givet en adressökning, när anropet byggs, så heter parametern query", () => {
+    const r = adapterFor(vasyd).request(vasyd, "SearchAdress", {
+      method: "POST", body: "searchText=Storgatan", contentType: "application/x-www-form-urlencoded"
+    });
+    assert.equal(r.url, vasyd.base + "/buildingaddresssearch");
+    assert.equal(r.method, "POST");
+    // Alla andra parameternamn ger {"success":false} med HTTP 200.
+    assert.equal(new URLSearchParams(r.body).get("query"), "Storgatan");
+  });
+
+  it("Givet sökträffar, när de normaliseras, så får varje adress sitt id i parentes", () => {
+    const svar = JSON.stringify({ query: "Storgatan", items: [
+      { street: "Storgatan 1, Malmö", id: "125040" },
+      { street: "Storgatan 2, Arlöv", id: "131172" }
+    ]});
+    const ut = JSON.parse(adapterFor(vasyd).normalize("SearchAdress", svar));
+    assert.deepEqual(ut.Buildings, ["Storgatan 1, Malmö (125040)", "Storgatan 2, Arlöv (131172)"]);
+  });
+
+  it("Givet en vald adress, när schemat begärs, så skickas bara id-siffrorna", () => {
+    const r = adapterFor(vasyd).request(vasyd, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("Storgatan 1, Malmö (125040)")
+    });
+    assert.equal(r.url, vasyd.base + "/wastepickupbyaddress");
+    // Skickar man adresstexten i stället för id:t får man en tom lista, också med HTTP 200.
+    assert.equal(new URLSearchParams(r.body).get("query"), "125040");
+  });
+
+  it("Givet ett schemasvar, när det normaliseras, så byter fälten till appens namn", () => {
+    const svar = JSON.stringify({ items: [
+      { address: "", wasteType: "Restavfall", wastePickupFrequency: "Torsdag jämn vecka ", nextWastePickup: "2026-08-06" }
+    ], meta: { success: true, message: null }});
+    const ut = JSON.parse(adapterFor(vasyd).normalize("GetWastePickupSchedule", svar));
+    assert.equal(ut.RhServices[0].WasteType, "Restavfall");
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-06");
+    assert.equal(ut.RhServices[0].WastePickupFrequency, "Torsdag jämn vecka");
+  });
+
+  it("Givet ett fel som kommer som HTTP 200, när det normaliseras, så blir det tomt i stället för att tolkas som data", () => {
+    // VA SYD svarar 200 även när något gick fel – felet står bara i meta.
+    const svar = JSON.stringify({ meta: { success: false, message: "Något gick fel" } });
+    assert.deepEqual(JSON.parse(adapterFor(vasyd).normalize("GetWastePickupSchedule", svar)).RhServices, []);
+    assert.deepEqual(JSON.parse(adapterFor(vasyd).normalize("SearchAdress", svar)).Buildings, []);
   });
 });
 

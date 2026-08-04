@@ -63,6 +63,7 @@ const PROVIDERS = {
   uppsalavatten: { kind: "edp", base: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup" },
   vafabmiljo: { kind: "edp", base: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup" },
   // VIVAB kör en egen instans per kommun på samma värd.
+  vasyd: { kind: "vasyd", base: "https://www.vasyd.se/api/sitecore/mypagesapi" },
   "vivab-falkenberg": { kind: "edp", base: "https://minasidor.vivab.info/FutureWebFalken/SimpleWastePickup" },
   "vivab-varberg": { kind: "edp", base: "https://minasidor.vivab.info/FutureWebVarberg/SimpleWastePickup" }
 };
@@ -173,6 +174,47 @@ const ADAPTERS = {
         }
       }
       return JSON.stringify({ RhServices: [...tidigast.values()] });
+    }
+  },
+
+  // VA SYD (Malmö, Burlöv). Två POST med formulärdata. Parametern heter
+  // `query` i båda stegen – alla andra namn ger {"success":false} med HTTP 200,
+  // och även riktiga fel kommer som 200, så svaret måste granskas på innehåll.
+  vasyd: {
+    request(provider, endpoint, params) {
+      const värde = endpoint === "SearchAdress"
+        ? anropsvarde(params, "searchText")
+        // Steg två vill ha enbart id-siffrorna; adresstexten ger tom lista.
+        : idUrParentes(anropsvarde(params, "address"));
+      return {
+        url: provider.base + (endpoint === "SearchAdress" ? "/buildingaddresssearch" : "/wastepickupbyaddress"),
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)"
+        },
+        body: "query=" + encodeURIComponent(värde)
+      };
+    },
+    normalize(endpoint, text) {
+      const svar = JSON.parse(text) || {};
+      const poster = Array.isArray(svar.items) ? svar.items : [];
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({
+          Succeeded: true,
+          Buildings: poster.filter(p => p && p.street && p.id).map(p => `${p.street} (${p.id})`)
+        });
+      }
+      return JSON.stringify({
+        RhServices: poster.filter(p => p && p.nextWastePickup).map(p => ({
+          WasteType: p.wasteType || "",
+          NextWastePickup: p.nextWastePickup,
+          // Frekvenstexten har efterföljande blanksteg i svaret.
+          WastePickupFrequency: String(p.wastePickupFrequency || "").trim(),
+          BinType: { Code: "", ContainerType: "", Size: null, Unit: "" }
+        }))
+      });
     }
   },
 

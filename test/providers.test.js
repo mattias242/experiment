@@ -124,7 +124,8 @@ const VERIFIED_OTHER = {
   nsr: { kind: "nsr", base: "https://nsr.se/api/wastecalendar" },
   danderyd: { kind: "exde", base: "https://minasidor-danderyd-az.exdesystems.se/api/api/external" },
   taby: { kind: "exde", base: "https://minasidor-taby-az.exdesystems.se/api/api/external" },
-  okrab: { kind: "exde", base: "https://minasidor.okrab.se/MinaSidor_API/api/external" }
+  okrab: { kind: "exde", base: "https://minasidor.okrab.se/MinaSidor_API/api/external" },
+  vasyd: { kind: "vasyd", base: "https://www.vasyd.se/api/sitecore/mypagesapi" }
 };
 
 describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {

@@ -8,7 +8,7 @@ den dagen.
 
 ## Stödda kommuner
 
-Appen täcker **41 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
+Appen täcker **42 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
 — adressökning och schemahämtning gav korrekta datum (2026-08-04).
 
 De flesta talar EDP FutureWeb-tjänsten "SimpleWastePickup". Tre kommuner nås via
@@ -20,6 +20,7 @@ och från EDP:s form så att resten av appen inte behöver veta om skillnaden:
 | Landskrona, Svalöv (LSR), Danderyd, Täby, Simrishamn och Tomelilla (Ökrab) | EXDE Systems (THOR) | Två POST med JSON. Hela tömningsserien returneras, inklusive passerade datum – de sållas bort |
 | Hässleholm | Appbolaget universal | Har EDP men bara bakom inloggning. Kräver ett extra uppslag och UTC-datum måste räknas om till svensk tid |
 | Helsingborg, Bjuv, Båstad, Höganäs, Åstorp, Ängelholm (NSR) | Eget API | Ett anrop ger både adresser och hela datumserien |
+| Malmö, Burlöv (VA SYD) | Sitecore mypagesapi | Parametern heter `query` i båda stegen, och även fel kommer som HTTP 200 |
 
 EDP-instanserna:
 
