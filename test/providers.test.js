@@ -40,6 +40,37 @@ function uiProviders() {
   return providers;
 }
 
+describe("Egenskap: allt appen behöver följer med i containern", () => {
+  // Dockerfilen kopierar en explicit lista med filer, vilket är avsiktligt –
+  // bara det som ska serveras hamnar i bilden. Priset är att en ny modul kan
+  // glömmas bort, och då kraschar containern i omstartsloop först i drift.
+  // Det här testet läser vad koden faktiskt kräver och jämför.
+  function requiredModules(startFile) {
+    const sedda = new Set();
+    const kö = [startFile];
+    while (kö.length) {
+      const fil = kö.shift();
+      if (sedda.has(fil)) continue;
+      sedda.add(fil);
+      const src = fs.readFileSync(path.join(__dirname, "..", fil), "utf8");
+      for (const m of src.matchAll(/require\("\.\/([^"]+)"\)/g)) kö.push(m[1]);
+    }
+    return sedda;
+  }
+
+  it("Givet modulerna som server.js kräver, när Dockerfilen läses, så kopieras var och en", () => {
+    const dockerfile = fs.readFileSync(path.join(__dirname, "..", "Dockerfile"), "utf8");
+    const kopierade = new Set(
+      (dockerfile.match(/^COPY\s+(.+?)\s+\.\/\s*$/m) || ["", ""])[1].split(/\s+/)
+    );
+    const behövs = requiredModules("server.js");
+    assert.ok(behövs.size > 1, "hittade inga require() i server.js – har formatet ändrats?");
+    for (const fil of behövs) {
+      assert.ok(kopierade.has(fil), fil + " krävs av appen men kopieras inte i Dockerfile");
+    }
+  });
+});
+
 describe("Egenskap: kommunlistan är densamma i proxyn och i gränssnittet", () => {
   it("Givet de två listorna, när de jämförs, så innehåller de samma kommuner", () => {
     const ui = Object.keys(uiProviders());
