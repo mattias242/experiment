@@ -119,6 +119,27 @@ describe("Egenskap: påminnelsen kvällen före tömning", () => {
     assert.equal(r.body, "Torsdag 6 augusti töms Matavfall och Restavfall.");
   });
 
+  it("Givet en tjänst utan tömningsdatum, när påminnelsen byggs, så hoppas tjänsten över – inte hela adressen", () => {
+    // Piteå svarar med tjänster som saknar NextWastePickup bredvid tjänster
+    // som har datum. Den tomma får inte tysta påminnelsen för de andra.
+    const services = [
+      { WasteType: "Slam", NextWastePickup: "" },
+      { WasteType: "Restavfall", NextWastePickup: "2026-08-06" }
+    ];
+    const r = reminderFor(services, "2026-08-05");
+    assert.equal(r.title, "Sophämtning imorgon");
+    assert.match(r.body, /Restavfall/);
+    assert.doesNotMatch(r.body, /Slam/);
+  });
+
+  it("Givet en tjänst utan namn, när påminnelsen byggs, så används kärltypen i stället", () => {
+    // Mellerud svarar med WasteType: null på vissa tjänster.
+    const services = [{ WasteType: null, BinType: { ContainerType: "Kärl", Code: "K190" }, NextWastePickup: "2026-08-06" }];
+    const r = reminderFor(services, "2026-08-05");
+    assert.ok(r, "påminnelsen ska byggas trots att avfallsslaget saknas");
+    assert.doesNotMatch(r.body, /null/);
+  });
+
   it("Givet att ingenting töms imorgon, när schemat gås igenom, så blir det ingen påminnelse", () => {
     assert.equal(reminderFor([fyrfack("Kärl 2", "2026-08-07")], "2026-08-05"), null);
     assert.equal(reminderFor([], "2026-08-05"), null);

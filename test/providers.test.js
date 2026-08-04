@@ -107,7 +107,13 @@ const VERIFIED_2026_08_04 = {
   kramfors: "https://futureweb.kramfors.se/EDPFutureWeb/SimpleWastePickup",
   solleftea: "https://futureweb.solleftea.se/FutureWeb/SimpleWastePickup",
   june: "https://minasidor.juneavfall.se/FutureWebJuneBasic/SimpleWastePickup",
-  ludvika: "https://futureweb.wbab.se/EDPFutureWeb/SimpleWastePickup"
+  ludvika: "https://futureweb.wbab.se/EDPFutureWeb/SimpleWastePickup",
+  // Hittade 2026-08-05 genom att läsa kommunernas egna avfallssidor – inte
+  // genom att gissa värdnamn. Oxelösund ligger på bolagets domän
+  // (oxeloenergi.se), som ingen bolagsförteckning innehöll.
+  oxelosund: "https://futureweb.oxeloenergi.se/FutureWeb/SimpleWastePickup",
+  mellerud: "https://vatten.mellerud.se/EDPFutureWeb/SimpleWastePickup",
+  pitea: "https://va.pitea.se/FutureWeb/SimpleWastePickup"
 };
 
 // Kommuner på andra plattformar än EDP. De kräver var sin adapter, så här
