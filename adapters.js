@@ -59,6 +59,8 @@ const PROVIDERS = {
   skelleftea: { kind: "edp", base: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup" },
   solleftea: { kind: "edp", base: "https://futureweb.solleftea.se/FutureWeb/SimpleWastePickup" },
   ssam: { kind: "edp", base: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup" },
+  stockholm: { kind: "svoa", base: "https://www.stockholmvattenochavfall.se/villa-och-radhus/avfallstjanster/nar-kommer-sopbilen" },
+  sundsvall: { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" },
   taby: { kind: "exde", base: "https://minasidor-taby-az.exdesystems.se/api/api/external" },
   uppsalavatten: { kind: "edp", base: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup" },
   vafabmiljo: { kind: "edp", base: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup" },
@@ -66,6 +68,16 @@ const PROVIDERS = {
   vasyd: { kind: "vasyd", base: "https://www.vasyd.se/api/sitecore/mypagesapi" },
   "vivab-falkenberg": { kind: "edp", base: "https://minasidor.vivab.info/FutureWebFalken/SimpleWastePickup" },
   "vivab-varberg": { kind: "edp", base: "https://minasidor.vivab.info/FutureWebVarberg/SimpleWastePickup" }
+};
+
+// Sundsvalls API använder engelska koder för avfallsslagen. Det här är en
+// översättning av kodnamnen, inte en tolkning av vad som ligger i kärlen –
+// okända koder visas som de är i stället för att tappas bort.
+const AVFALLSSLAG_SUNDSVALL = {
+  WASTE: "Restavfall",
+  FOOD: "Matavfall",
+  PAPER: "Pappersförpackningar",
+  PLASTIC: "Plastförpackningar"
 };
 
 const ADAPTERS = {
@@ -215,6 +227,106 @@ const ADAPTERS = {
           BinType: { Code: "", ContainerType: "", Size: null, Unit: "" }
         }))
       });
+    }
+  },
+
+  // Stockholm Vatten och Avfall. Två GET. Gäller bara villa och radhus –
+  // flerbostadshus svarar {} med HTTP 200 och ska läsas som "hittades inte".
+  svoa: {
+    request(provider, endpoint, params) {
+      const headers = { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" };
+      if (endpoint === "SearchAdress") {
+        return {
+          url: provider.base + "/AutoCompleteMe?query=" + encodeURIComponent(anropsvarde(params, "searchText")),
+          method: "GET", headers
+        };
+      }
+      return {
+        url: provider.base + "/Search?address=" + encodeURIComponent(anropsvarde(params, "address")),
+        method: "GET", headers
+      };
+    },
+    normalize(endpoint, text, { today } = {}) {
+      const data = JSON.parse(text) || {};
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({
+          Succeeded: true,
+          // Förslagets `value` är exakt den sträng Search vill ha tillbaka.
+          Buildings: (Array.isArray(data) ? data : []).filter(f => f && f.value).map(f => f.value)
+        });
+      }
+      // Schemat är ett objekt med avfallsslaget som nyckel och en lista under.
+      const idag = today || svenskDatum(new Date());
+      const tjänster = [];
+      for (const [typ, poster] of Object.entries(data)) {
+        const kommande = (Array.isArray(poster) ? poster : [])
+          .map(p => p && p.ExecutionDate ? { datum: String(p.ExecutionDate).slice(0, 10), frekvens: p.FetchFrequency || "" } : null)
+          .filter(p => p && p.datum >= idag)
+          .sort((a, b) => (a.datum < b.datum ? -1 : 1));
+        if (!kommande.length) continue;
+        tjänster.push({
+          WasteType: typ,
+          NextWastePickup: kommande[0].datum,
+          WastePickupFrequency: kommande[0].frekvens,
+          BinType: { Code: "", ContainerType: "", Size: null, Unit: "" }
+        });
+      }
+      return JSON.stringify({ RhServices: tjänster });
+    }
+  },
+
+  // Sundsvall – det enda API:et i kartläggningen som är avsiktligt publicerat
+  // som öppna data (CC0). Ett anrop ger både adress och schema.
+  sundsvall: {
+    request(provider, endpoint, params) {
+      const headers = { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" };
+      if (endpoint === "SearchAdress") {
+        // Okända parameternamn ignoreras tyst och ger hela registret –
+        // 23 510 poster – i stället för ett fel. `street` är det rätta.
+        return {
+          url: provider.base + "/schedules?street=" + encodeURIComponent(anropsvarde(params, "searchText")),
+          method: "GET", headers
+        };
+      }
+      const [gata, nummer] = idUrParentes(anropsvarde(params, "address")).split("|");
+      return {
+        url: provider.base + "/schedules?street=" + encodeURIComponent(gata || "") +
+             "&houseNumber=" + encodeURIComponent(nummer || ""),
+        method: "GET", headers
+      };
+    },
+    normalize(endpoint, text, { today } = {}) {
+      const poster = JSON.parse(text);
+      const lista = Array.isArray(poster) ? poster : [];
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({
+          Succeeded: true,
+          Buildings: lista.filter(p => p && p.address && p.address.street).map(p => {
+            const a = p.address;
+            // Gata och nummer behövs båda för att slå upp schemat.
+            return `${a.street} ${a.houseNumber || ""}, ${a.city || ""} (${a.street}|${a.houseNumber || ""})`.replace(/ +,/, ",");
+          })
+        });
+      }
+      const idag = today || svenskDatum(new Date());
+      const tidigast = new Map();
+      for (const p of lista) {
+        for (const s of (p.schedules || [])) {
+          const typ = AVFALLSSLAG_SUNDSVALL[s.wasteType] || s.wasteType;
+          const datum = s.nextPickupDate ? String(s.nextPickupDate).slice(0, 10) : null;
+          if (!typ || !datum || datum < idag) continue;
+          const befintlig = tidigast.get(typ);
+          if (!befintlig || datum < befintlig.NextWastePickup) {
+            tidigast.set(typ, {
+              WasteType: typ,
+              NextWastePickup: datum,
+              WastePickupFrequency: "",
+              BinType: { Code: "", ContainerType: "", Size: null, Unit: "" }
+            });
+          }
+        }
+      }
+      return JSON.stringify({ RhServices: [...tidigast.values()] });
     }
   },
 

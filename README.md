@@ -8,7 +8,7 @@ den dagen.
 
 ## Stödda kommuner
 
-Appen täcker **42 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
+Appen täcker **44 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
 — adressökning och schemahämtning gav korrekta datum (2026-08-04).
 
 De flesta talar EDP FutureWeb-tjänsten "SimpleWastePickup". Tre kommuner nås via
@@ -21,6 +21,8 @@ och från EDP:s form så att resten av appen inte behöver veta om skillnaden:
 | Hässleholm | Appbolaget universal | Har EDP men bara bakom inloggning. Kräver ett extra uppslag och UTC-datum måste räknas om till svensk tid |
 | Helsingborg, Bjuv, Båstad, Höganäs, Åstorp, Ängelholm (NSR) | Eget API | Ett anrop ger både adresser och hela datumserien |
 | Malmö, Burlöv (VA SYD) | Sitecore mypagesapi | Parametern heter `query` i båda stegen, och även fel kommer som HTTP 200 |
+| Stockholm | Eget JSON-API | **Endast villa och radhus.** Adresser utan villaabonnemang listas i sökningen men ger tomt schema |
+| Sundsvall | Öppna data (CC0) | Det enda avsiktligt publicerade API:et. Okänt parameternamn ignoreras tyst och ger hela registret |
 
 EDP-instanserna:
 

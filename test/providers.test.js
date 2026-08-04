@@ -125,7 +125,9 @@ const VERIFIED_OTHER = {
   danderyd: { kind: "exde", base: "https://minasidor-danderyd-az.exdesystems.se/api/api/external" },
   taby: { kind: "exde", base: "https://minasidor-taby-az.exdesystems.se/api/api/external" },
   okrab: { kind: "exde", base: "https://minasidor.okrab.se/MinaSidor_API/api/external" },
-  vasyd: { kind: "vasyd", base: "https://www.vasyd.se/api/sitecore/mypagesapi" }
+  vasyd: { kind: "vasyd", base: "https://www.vasyd.se/api/sitecore/mypagesapi" },
+  stockholm: { kind: "svoa", base: "https://www.stockholmvattenochavfall.se/villa-och-radhus/avfallstjanster/nar-kommer-sopbilen" },
+  sundsvall: { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" }
 };
 
 describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {

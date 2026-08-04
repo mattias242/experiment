@@ -34,7 +34,7 @@ describe("Egenskap: söktexten hittas oavsett hur klienten skickar den", () => {
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd"]);
+    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd", "svoa", "sundsvall"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -340,6 +340,93 @@ describe("Egenskap: VA SYD översätts till appens form", () => {
     const svar = JSON.stringify({ meta: { success: false, message: "Något gick fel" } });
     assert.deepEqual(JSON.parse(adapterFor(vasyd).normalize("GetWastePickupSchedule", svar)).RhServices, []);
     assert.deepEqual(JSON.parse(adapterFor(vasyd).normalize("SearchAdress", svar)).Buildings, []);
+  });
+});
+
+describe("Egenskap: Stockholms villaschema översätts till appens form", () => {
+  const svoa = { kind: "svoa", base: "https://exempel.invalid/nar-kommer-sopbilen" };
+
+  it("Givet en adressökning, när anropet byggs, så frågas autocomplete", () => {
+    const r = adapterFor(svoa).request(svoa, "SearchAdress", {
+      method: "POST", body: "searchText=Ålstens skogsväg", contentType: "application/x-www-form-urlencoded"
+    });
+    assert.equal(r.method, "GET");
+    assert.equal(new URL(r.url).searchParams.get("query"), "Ålstens skogsväg");
+  });
+
+  it("Givet förslagen, när de normaliseras, så blir värdet adressen appen skickar tillbaka", () => {
+    const svar = JSON.stringify([
+      { value: "Ålstens skogsväg 8, Bromma, 167 63", data: "167 63" },
+      { value: "Ålstens skogsväg 10, Bromma, 167 63", data: "167 63" }
+    ]);
+    const ut = JSON.parse(adapterFor(svoa).normalize("SearchAdress", svar));
+    assert.deepEqual(ut.Buildings, ["Ålstens skogsväg 8, Bromma, 167 63", "Ålstens skogsväg 10, Bromma, 167 63"]);
+  });
+
+  it("Givet ett schemasvar, när det normaliseras, så blir varje avfallsslag en tjänst", () => {
+    // Svaret är ett objekt med avfallsslaget som nyckel, inte en lista.
+    const svar = JSON.stringify({
+      "Restavfall, villa": [{ FetchFrequency: "1 gång i veckan", ExecutionDate: "2026-08-05", Weekday: "Onsdag" }],
+      "Matavfall, villa": [{ FetchFrequency: "Varannan vecka", ExecutionDate: "2026-08-05", Weekday: "Onsdag" }]
+    });
+    const ut = JSON.parse(adapterFor(svoa).normalize("GetWastePickupSchedule", svar, { today: "2026-08-01" }));
+    assert.equal(ut.RhServices.length, 2);
+    const rest = ut.RhServices.find(s => s.WasteType === "Restavfall, villa");
+    assert.equal(rest.NextWastePickup, "2026-08-05");
+    assert.equal(rest.WastePickupFrequency, "1 gång i veckan");
+  });
+
+  it("Givet en adress utan villaabonnemang, när svaret normaliseras, så blir det tomt i stället för ett fel", () => {
+    // Flerbostadshus ger {} med HTTP 200 – Stockholm har bara villa och radhus.
+    assert.deepEqual(JSON.parse(adapterFor(svoa).normalize("GetWastePickupSchedule", "{}")).RhServices, []);
+  });
+});
+
+describe("Egenskap: Sundsvalls öppna data översätts till appens form", () => {
+  const sund = { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" };
+
+  it("Givet en adressökning, när anropet byggs, så filtreras på gatunamnet", () => {
+    const r = adapterFor(sund).request(sund, "SearchAdress", {
+      method: "POST", body: "searchText=Trossvägen", contentType: "application/x-www-form-urlencoded"
+    });
+    // Fel parameternamn ignoreras tyst och ger hela registret på 23 510 poster.
+    assert.equal(new URL(r.url).searchParams.get("street"), "Trossvägen");
+  });
+
+  it("Givet träffar, när de normaliseras, så bär adressen med sig gata och nummer", () => {
+    const svar = JSON.stringify([
+      { address: { street: "Trossvägen", houseNumber: "3", city: "Alnö", postalCode: "86533" }, schedules: [] }
+    ]);
+    const ut = JSON.parse(adapterFor(sund).normalize("SearchAdress", svar));
+    assert.deepEqual(ut.Buildings, ["Trossvägen 3, Alnö (Trossvägen|3)"]);
+  });
+
+  it("Givet en vald adress, när schemat begärs, så skickas både gata och husnummer", () => {
+    const r = adapterFor(sund).request(sund, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("Trossvägen 3, Alnö (Trossvägen|3)")
+    });
+    const p = new URL(r.url).searchParams;
+    assert.equal(p.get("street"), "Trossvägen");
+    assert.equal(p.get("houseNumber"), "3");
+  });
+
+  it("Givet kodade avfallsslag, när schemat normaliseras, så visas de på svenska", () => {
+    const svar = JSON.stringify([{ address: { street: "Trossvägen", houseNumber: "3", city: "Alnö" }, schedules: [
+      { nextPickupDate: "2026-09-01", wasteType: "WASTE" },
+      { nextPickupDate: "2026-08-18", wasteType: "FOOD" },
+      { nextPickupDate: "2026-08-18", wasteType: "PLASTIC" }
+    ]}]);
+    const ut = JSON.parse(adapterFor(sund).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" }));
+    const typer = ut.RhServices.map(s => s.WasteType).sort();
+    assert.deepEqual(typer, ["Matavfall", "Plastförpackningar", "Restavfall"]);
+  });
+
+  it("Givet ett okänt avfallsslag, när det normaliseras, så visas koden i stället för att posten tappas", () => {
+    const svar = JSON.stringify([{ address: { street: "X", houseNumber: "1", city: "Y" }, schedules: [
+      { nextPickupDate: "2026-09-01", wasteType: "NYTT_SLAG" }
+    ]}]);
+    const ut = JSON.parse(adapterFor(sund).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" }));
+    assert.equal(ut.RhServices[0].WasteType, "NYTT_SLAG");
   });
 });
 
