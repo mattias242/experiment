@@ -561,6 +561,12 @@
   const PROVIDERS = {
     // site: människoläsbar infosida om sophämtning hos respektive
     // kommun/bolag – används som källänk i sidfoten (verifierade 2026-08-03).
+    taby: {
+      label: "Täby kommun",
+      kind: "exde",
+      base: "https://minasidor-taby-az.exdesystems.se/api/api/external",
+      site: "https://www.taby.se/bygga-bo-och-miljo/avfall-och-atervinning/vara-avfallstjanster/hushallsavfall"
+    },
     stenungsund: {
       label: "Stenungsunds kommun",
       base: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup",
@@ -588,6 +594,12 @@
         "kärl 1": ["Plastförpackningar", "Färgat glas", "Matavfall", "Pappersförpackningar"],
         "kärl 2": ["Tidningar", "Restavfall", "Ofärgat glas", "Metallförpackningar"]
       }
+    },
+    danderyd: {
+      label: "Danderyds kommun",
+      kind: "exde",
+      base: "https://minasidor-danderyd-az.exdesystems.se/api/api/external",
+      site: "https://www.danderyd.se/bygga-bo-och-miljo/avfall-atervinning-och-aterbruk/nar-hamtas-mitt-avfall/"
     },
     gotland: {
       label: "Region Gotland",
@@ -731,6 +743,12 @@
       label: "Nacka (Nacka vatten och avfall)",
       base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup",
       site: "https://www.nacka.se/nackavattenavfall/avfall/sophamtning/tomningsdag/"
+    },
+    okrab: {
+      label: "Ökrab (Simrishamn, Tomelilla)",
+      kind: "exde",
+      base: "https://minasidor.okrab.se/MinaSidor_API/api/external",
+      site: "https://www.okrab.se/hamtning/tomningskalender"
     },
     orebro: {
       label: "Örebro kommun",

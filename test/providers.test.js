@@ -121,7 +121,10 @@ const VERIFIED_2026_08_04 = {
 const VERIFIED_OTHER = {
   lsr: { kind: "exde", base: "https://minasidor.lsr.nu/api/api/external" },
   hassleholm: { kind: "appbolaget", base: "https://api-universal.appbolaget.se" },
-  nsr: { kind: "nsr", base: "https://nsr.se/api/wastecalendar" }
+  nsr: { kind: "nsr", base: "https://nsr.se/api/wastecalendar" },
+  danderyd: { kind: "exde", base: "https://minasidor-danderyd-az.exdesystems.se/api/api/external" },
+  taby: { kind: "exde", base: "https://minasidor-taby-az.exdesystems.se/api/api/external" },
+  okrab: { kind: "exde", base: "https://minasidor.okrab.se/MinaSidor_API/api/external" }
 };
 
 describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {

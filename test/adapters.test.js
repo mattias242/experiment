@@ -83,6 +83,26 @@ describe("Egenskap: EXDE-tjänster översätts till appens form", () => {
     assert.equal(ut.RhServices.length, 2);
   });
 
+  it("Givet passerade tömningar i serien, när den normaliseras, så visas nästa kommande – inte den äldsta", () => {
+    // Täby och Ökrab returnerar serier som börjar långt bak i tiden. Utan
+    // filter blir "nästa tömning" ett datum som redan varit.
+    const svar = JSON.stringify([
+      { date: "2026-07-06T00:00:00", typeOfWasteDescription: "Sorterat avfall", containerType: "K370" },
+      { date: "2026-08-17T00:00:00", typeOfWasteDescription: "Sorterat avfall", containerType: "K370" },
+      { date: "2026-09-14T00:00:00", typeOfWasteDescription: "Sorterat avfall", containerType: "K370" }
+    ]);
+    const ut = JSON.parse(adapterFor(exde).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" }));
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-17");
+  });
+
+  it("Givet att bara passerade tömningar finns, när serien normaliseras, så utelämnas avfallsslaget", () => {
+    const svar = JSON.stringify([
+      { date: "2026-07-06T00:00:00", typeOfWasteDescription: "Trädgård", containerType: "K370" }
+    ]);
+    const ut = JSON.parse(adapterFor(exde).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" }));
+    assert.deepEqual(ut.RhServices, []);
+  });
+
   it("Givet ett tomt svar, när det normaliseras, så blir det en tom lista i stället för ett fel", () => {
     assert.deepEqual(JSON.parse(adapterFor(exde).normalize("GetWastePickupSchedule", "[]")).RhServices, []);
     assert.deepEqual(JSON.parse(adapterFor(exde).normalize("SearchAdress", "[]")).Buildings, []);

@@ -15,6 +15,7 @@ const PROVIDERS = {
   stenungsund: { kind: "edp", base: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup" },
   ale: { kind: "edp", base: "https://edp.ale.se/FutureWeb/SimpleWastePickup" },
   boden: { kind: "edp", base: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup" },
+  danderyd: { kind: "exde", base: "https://minasidor-danderyd-az.exdesystems.se/api/api/external" },
   boras: { kind: "edp", base: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup" },
   gotland: { kind: "edp", base: "https://edpfuture.gotland.se/FutureWeb/SimpleWastePickup" },
   // Hässleholm har EDP men bara bakom inloggning – Appbolagets app-API är
@@ -47,6 +48,9 @@ const PROVIDERS = {
   // NSR har eget API och täcker sex kommuner från en instans.
   nsr: { kind: "nsr", base: "https://nsr.se/api/wastecalendar" },
   nvoa: { kind: "edp", base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup" },
+  // Ökrab: Sysav tar över Tomelilla och Simrishamn 2026-09-01, så den här
+  // instansen kan försvinna. Bevaka – hellre en ärlig felruta än gamla datum.
+  okrab: { kind: "exde", base: "https://minasidor.okrab.se/MinaSidor_API/api/external" },
   orebro: { kind: "edp", base: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup" },
   orust: { kind: "edp", base: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup" },
   oxelosund: { kind: "edp", base: "https://futureweb.oxeloenergi.se/FutureWeb/SimpleWastePickup" },
@@ -55,6 +59,7 @@ const PROVIDERS = {
   skelleftea: { kind: "edp", base: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup" },
   solleftea: { kind: "edp", base: "https://futureweb.solleftea.se/FutureWeb/SimpleWastePickup" },
   ssam: { kind: "edp", base: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup" },
+  taby: { kind: "exde", base: "https://minasidor-taby-az.exdesystems.se/api/api/external" },
   uppsalavatten: { kind: "edp", base: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup" },
   vafabmiljo: { kind: "edp", base: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup" },
   // VIVAB kör en egen instans per kommun på samma värd.
@@ -94,19 +99,21 @@ const ADAPTERS = {
         body: JSON.stringify({ Address: adress })
       };
     },
-    normalize(endpoint, text) {
+    normalize(endpoint, text, { today } = {}) {
       const data = JSON.parse(text);
       if (endpoint === "SearchAdress") {
         return JSON.stringify({ Succeeded: true, Buildings: Array.isArray(data) ? data : [] });
       }
-      // Serien innehåller flera tillfällen per avfallsslag och kommer inte
-      // sorterad. Appen visar nästa tömning, så bara det tidigaste datumet
-      // per avfallsslag behålls.
+      // Serien innehåller flera tillfällen per avfallsslag, kommer inte
+      // sorterad, och sträcker sig bakåt i tiden. Appen visar nästa tömning,
+      // så passerade datum sållas bort innan det tidigaste per avfallsslag
+      // väljs – annars blir "nästa tömning" en dag som redan varit.
+      const idag = today || svenskDatum(new Date());
       const tidigast = new Map();
       for (const post of Array.isArray(data) ? data : []) {
         const typ = post.typeOfWasteDescription || post.wasteType || post.typeOfWaste;
         const datum = typeof post.date === "string" ? post.date.slice(0, 10) : null;
-        if (!typ || !datum) continue;
+        if (!typ || !datum || datum < idag) continue;
         const befintlig = tidigast.get(typ);
         if (!befintlig || datum < befintlig.NextWastePickup) {
           tidigast.set(typ, {
