@@ -10,11 +10,11 @@ länge för hand mot livesajten.
 
 ```gherkin
 Scenario: Kommunerna listas i bokstavsordning
-  Givet att appen stöder 34 kommuner/avfallsbolag
+  Givet att appen stöder 37 kommuner/avfallsbolag
   När besökaren öppnar kommunväljaren
   Så listas alla i svensk bokstavsordning (Ale först, Örebro sist)
   Och en instans som inte kunnat verifieras märks "(otestad)" –
-  för närvarande är alla 34 verifierade
+  för närvarande är alla 37 verifierade
 
 Scenario: Kommuner på andra plattformar ser likadana ut för besökaren
   Givet en kommun som inte kör EDP FutureWeb (LSR, Hässleholm)

@@ -8,7 +8,7 @@ den dagen.
 
 ## Stödda kommuner
 
-Appen täcker **34 kommuner/avfallsbolag**, alla verifierade mot riktiga adresser
+Appen täcker **37 kommuner/avfallsbolag**, alla verifierade mot riktiga adresser
 — adressökning och schemahämtning gav korrekta datum (2026-08-04).
 
 De flesta talar EDP FutureWeb-tjänsten "SimpleWastePickup". Tre kommuner nås via
@@ -26,8 +26,8 @@ Ale, Boden, Borås (BEM), Gotland, Herrljunga & Vårgårda (Remondis), Hudiksval
 June Avfall & Miljö (Jönköping, Habo, Mullsjö), Kiruna, Kramfors, Kretslopp
 Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö, Uppvidinge,
 Vetlanda), Kristianstad, Kungälv, Lerum, Lidköping, Ljungby, Ludvika (WBAB),
-Lund, Lycksele, Mark, MERAB (Eslöv, Höör, Hörby), Nacka (NVOA), Orust,
-Partille, Skellefteå, Sollefteå, SSAM (Växjö, Alvesta, Lessebo, Markaryd,
+Lund, Lycksele, Mark, MERAB (Eslöv, Höör, Hörby), Nacka (NVOA), Mellerud, Orust, Oxelösund (Oxelö Energi),
+Partille, Piteå, Skellefteå, Sollefteå, SSAM (Växjö, Alvesta, Lessebo, Markaryd,
 Tingsryd), Stenungsund, Uppsala (Uppsala vatten), VafabMiljö (Västerås m.fl.),
 VIVAB Falkenberg, VIVAB Varberg, Örebro.
 
