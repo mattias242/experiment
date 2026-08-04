@@ -8,7 +8,7 @@ den dagen.
 
 ## Stödda kommuner
 
-Appen täcker **38 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
+Appen täcker **41 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
 — adressökning och schemahämtning gav korrekta datum (2026-08-04).
 
 De flesta talar EDP FutureWeb-tjänsten "SimpleWastePickup". Tre kommuner nås via
@@ -17,7 +17,7 @@ och från EDP:s form så att resten av appen inte behöver veta om skillnaden:
 
 | Kommun | Plattform | Not |
 |---|---|---|
-| Landskrona, Svalöv (LSR) | EXDE Systems (THOR) | Två POST med JSON; hela tömningsserien returneras |
+| Landskrona, Svalöv (LSR), Danderyd, Täby, Simrishamn och Tomelilla (Ökrab) | EXDE Systems (THOR) | Två POST med JSON. Hela tömningsserien returneras, inklusive passerade datum – de sållas bort |
 | Hässleholm | Appbolaget universal | Har EDP men bara bakom inloggning. Kräver ett extra uppslag och UTC-datum måste räknas om till svensk tid |
 | Helsingborg, Bjuv, Båstad, Höganäs, Åstorp, Ängelholm (NSR) | Eget API | Ett anrop ger både adresser och hela datumserien |
 
@@ -27,7 +27,7 @@ Ale, Boden, Borås (BEM), Gotland, Herrljunga & Vårgårda (Remondis), Hudiksval
 June Avfall & Miljö (Jönköping, Habo, Mullsjö), Kiruna, Kramfors, Kretslopp
 Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö, Uppvidinge,
 Vetlanda), Kristianstad, Kungälv, Lerum, Lidköping, Ljungby, Ludvika (WBAB),
-Lund, Lycksele, Mark, MERAB (Eslöv, Höör, Hörby), Nacka (NVOA), Mellerud, Orust, Oxelösund (Oxelö Energi),
+Lund, Lycksele, Mark, MERAB (Eslöv, Höör, Hörby), Mellerud, Nacka (NVOA), Orust, Oxelösund (Oxelö Energi),
 Partille, Piteå, Skellefteå, Sollefteå, SSAM (Växjö, Alvesta, Lessebo, Markaryd,
 Tingsryd), Stenungsund, Uppsala (Uppsala vatten), VafabMiljö (Västerås m.fl.),
 VIVAB Falkenberg, VIVAB Varberg, Örebro.
