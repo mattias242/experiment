@@ -129,7 +129,9 @@ const VERIFIED_OTHER = {
   stockholm: { kind: "svoa", base: "https://www.stockholmvattenochavfall.se/villa-och-radhus/avfallstjanster/nar-kommer-sopbilen" },
   sundsvall: { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" },
   telge: { kind: "thorweb", base: "https://www.telge.se/api/thorweb/garbagecollection" },
-  lumire: { kind: "lumire", base: "https://lumire.se/api/waste-pickup" }
+  lumire: { kind: "lumire", base: "https://lumire.se/api/waste-pickup" },
+  sysav: { kind: "sysav", base: "https://ca-swec-sysav-public-edp-prod.bluedune-a5ae63ed.swedencentral.azurecontainerapps.io/api" },
+  affarsverken: { kind: "affarsverken", base: "https://kundapi.affarsverken.se/api/v1/open-api" }
 };
 
 describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {

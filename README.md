@@ -8,7 +8,7 @@ den dagen.
 
 ## Stödda kommuner
 
-Appen täcker **46 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
+Appen täcker **48 kommuner och avfallsbolag**, alla verifierade mot riktiga adresser
 — adressökning och schemahämtning gav korrekta datum (2026-08-04).
 
 De flesta talar EDP FutureWeb-tjänsten "SimpleWastePickup". Tre kommuner nås via
@@ -25,6 +25,8 @@ och från EDP:s form så att resten av appen inte behöver veta om skillnaden:
 | Sundsvall | Öppna data (CC0) | Det enda avsiktligt publicerade API:et. Okänt parameternamn ignoreras tyst och ger hela registret |
 | Södertälje (Telge) | EXDE Systems (THOR) | Samma produkt som LSR med flera, men värdena ligger i sökvägen – normaliseringen delas |
 | Luleå (Lumire) | Eget REST-omslag runt EDP | Avslutade abonnemang ligger kvar i svaret och sållas bort |
+| Svedala, Lomma, Kävlinge (Sysav) | EDP bakom eget API | Bas-URL:en är en genererad Azure-adress som läses ur `data-api` på deras sida |
+| Karlskrona (Affärsverken) | Eget "open-api" | Token delas ut anonymt men krävs på varje anrop; cachas i 30 minuter |
 
 EDP-instanserna:
 

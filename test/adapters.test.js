@@ -34,7 +34,7 @@ describe("Egenskap: söktexten hittas oavsett hur klienten skickar den", () => {
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd", "svoa", "sundsvall", "thorweb", "lumire"]);
+    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd", "svoa", "sundsvall", "thorweb", "lumire", "sysav", "affarsverken"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -507,6 +507,113 @@ describe("Egenskap: Lumire översätts till appens form", () => {
       { description: "Gammalt abonnemang", nextPickup: "2026-08-14", isActive: false, binType: {} }
     ]});
     assert.deepEqual(JSON.parse(adapterFor(lum).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" })).RhServices, []);
+  });
+});
+
+describe("Egenskap: Sysavs rörliga bas-URL slås upp och återanvänds", () => {
+  // Sysavs API-adress är en genererad Azure-adress som står i attributet
+  // data-api på deras sida. Den kan ändras, så den läses därifrån i stället
+  // för att hårdkodas – men bara en gång, inte inför varje anrop.
+  const sidHtml = '<div class="waste" data-api="https://ca-xyz.azurecontainerapps.io/api"></div>';
+
+  it("Givet att bas-URL:en inte är känd, när den slås upp, så läses den ur sidans data-api", async () => {
+    const anrop = [];
+    const fetchImpl = async url => { anrop.push(url); return new Response(sidHtml, { status: 200 }); };
+    const sysav = { kind: "sysav", base: "https://exempel.invalid/sysav-1", site: "https://x.invalid/min-sophamtning/" };
+    const r = await adapterFor(sysav).resolve(sysav, "SearchAdress", {}, { fetchImpl });
+    assert.equal(anrop[0], sysav.site);
+    assert.equal(r.apiBase, "https://ca-xyz.azurecontainerapps.io/api");
+  });
+
+  it("Givet att bas-URL:en redan slagits upp, när nästa anrop görs, så hämtas sidan inte igen", async () => {
+    let hämtningar = 0;
+    const fetchImpl = async () => { hämtningar++; return new Response(sidHtml, { status: 200 }); };
+    const sysav = { kind: "sysav", base: "https://exempel.invalid/sysav-2", site: "https://x.invalid/min-sophamtning/" };
+    await adapterFor(sysav).resolve(sysav, "SearchAdress", {}, { fetchImpl });
+    await adapterFor(sysav).resolve(sysav, "GetWastePickupSchedule", {}, { fetchImpl });
+    assert.equal(hämtningar, 1, "sidan ska bara hämtas en gång");
+  });
+
+  it("Givet en uppslagen bas-URL, när anropen byggs, så används den i stället för den i listan", () => {
+    const sysav = { kind: "sysav", base: "https://exempel.invalid/sysav-3", site: "https://x.invalid/" };
+    const sök = adapterFor(sysav).request(sysav, "SearchAdress", {
+      body: "searchText=Storgatan 10", contentType: "application/x-www-form-urlencoded",
+      resolved: { apiBase: "https://ca-xyz.azurecontainerapps.io/api" }
+    });
+    assert.equal(sök.url, "https://ca-xyz.azurecontainerapps.io/api/PickupSchedules/findbuilding/Storgatan%2010");
+    const schema = adapterFor(sysav).request(sysav, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("Storgatan 10, Lomma"),
+      resolved: { apiBase: "https://ca-xyz.azurecontainerapps.io/api" }
+    });
+    assert.equal(schema.url, "https://ca-xyz.azurecontainerapps.io/api/PickupSchedules/foraddress/Storgatan%2010%2C%20Lomma");
+  });
+
+  it("Givet ett schemasvar, när det normaliseras, så byter fälten till appens namn", () => {
+    const svar = JSON.stringify([
+      { nextPickupDate: "2026-08-05", binType: "Kärl", binSize: "370,00", binUnit: "l",
+        pickupFrequency: "onsdag", wasteType: "Kärl 1", address: "Storgatan 10, Lomma" }
+    ]);
+    const ut = JSON.parse(adapterFor({ kind: "sysav" }).normalize("GetWastePickupSchedule", svar, { today: "2026-08-01" }));
+    assert.equal(ut.RhServices[0].WasteType, "Kärl 1");
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-05");
+    assert.equal(ut.RhServices[0].BinType.ContainerType, "Kärl");
+  });
+
+  it("Givet en adresslista, när den normaliseras, så blir den appens träfflista", () => {
+    const ut = JSON.parse(adapterFor({ kind: "sysav" })
+      .normalize("SearchAdress", JSON.stringify(["Storgatan 10, Lomma", "Storgatan 10, Svedala"])));
+    assert.deepEqual(ut.Buildings, ["Storgatan 10, Lomma", "Storgatan 10, Svedala"]);
+  });
+});
+
+describe("Egenskap: Affärsverkens token hämtas anonymt och återanvänds", () => {
+  it("Givet att ingen token finns, när en begärs, så hämtas den utan användaruppgifter", async () => {
+    const anrop = [];
+    const fetchImpl = async (url, opts) => { anrop.push({ url, opts }); return new Response('"jwt-abc"', { status: 200 }); };
+    const av = { kind: "affarsverken", base: "https://exempel.invalid/av-1", brand: "Affarsverken" };
+    const r = await adapterFor(av).resolve(av, "SearchAdress", {}, { fetchImpl });
+    assert.match(anrop[0].url, /\/login\?BrandName=Affarsverken$/);
+    assert.equal(anrop[0].opts.method, "POST");
+    // Utan Content-Length: 0 svarar tjänsten 411.
+    assert.equal(anrop[0].opts.headers["Content-Length"], "0");
+    assert.equal(r.token, "jwt-abc");
+  });
+
+  it("Givet en redan hämtad token, när nästa anrop görs, så hämtas ingen ny", async () => {
+    let inloggningar = 0;
+    const fetchImpl = async () => { inloggningar++; return new Response('"jwt-abc"', { status: 200 }); };
+    const av = { kind: "affarsverken", base: "https://exempel.invalid/av-2", brand: "Affarsverken" };
+    await adapterFor(av).resolve(av, "SearchAdress", {}, { fetchImpl });
+    await adapterFor(av).resolve(av, "SearchAdress", {}, { fetchImpl });
+    assert.equal(inloggningar, 1);
+  });
+
+  it("Givet en token, när anropen byggs, så skickas den som bearer", () => {
+    const av = { kind: "affarsverken", base: "https://exempel.invalid/av-3", brand: "Affarsverken" };
+    const r = adapterFor(av).request(av, "SearchAdress", {
+      body: "searchText=Storgatan", contentType: "application/x-www-form-urlencoded",
+      resolved: { token: "jwt-abc" }
+    });
+    assert.equal(r.headers["Authorization"], "Bearer jwt-abc");
+    assert.equal(new URL(r.url).searchParams.get("address"), "Storgatan");
+  });
+
+  it("Givet sökträffar, när de normaliseras, så bärs sökkontexten med i parentesen", () => {
+    const svar = JSON.stringify([{ address: "Storgatan 4, Fågelmara", buildingId: "9201246749", query: "eyJBZ" }]);
+    const ut = JSON.parse(adapterFor({ kind: "affarsverken" }).normalize("SearchAdress", svar));
+    // Schemat slås upp på `query`, inte på buildingId.
+    assert.deepEqual(ut.Buildings, ["Storgatan 4, Fågelmara (eyJBZ)"]);
+  });
+
+  it("Givet tjänster, när de normaliseras, så tas de utan tömningsdatum bort", () => {
+    const svar = JSON.stringify({ services: [
+      { title: "Matavfall", binSize: 140, binSizeUnit: "L", nextPickup: "2026-08-10", pickupFrequencyDescription: "Måndag udda vecka" },
+      { title: "Fyrfack 1", binSize: 0, nextPickup: "", pickupFrequencyDescription: "Var fjärde vecka" }
+    ]});
+    const ut = JSON.parse(adapterFor({ kind: "affarsverken" }).normalize("GetWastePickupSchedule", svar, { today: "2026-08-01" }));
+    assert.equal(ut.RhServices.length, 1);
+    assert.equal(ut.RhServices[0].WasteType, "Matavfall");
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-10");
   });
 });
 

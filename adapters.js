@@ -13,6 +13,8 @@ const UPSTREAM_TIMEOUT_MS = 15000;
 // Måste hållas i synk med PROVIDERS i index.html – test/providers.test.js vaktar det.
 const PROVIDERS = {
   stenungsund: { kind: "edp", base: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup" },
+  // Affärsverken: `brand` väljer bolag vid inloggningen.
+  affarsverken: { kind: "affarsverken", base: "https://kundapi.affarsverken.se/api/v1/open-api", brand: "Affarsverken" },
   ale: { kind: "edp", base: "https://edp.ale.se/FutureWeb/SimpleWastePickup" },
   boden: { kind: "edp", base: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup" },
   danderyd: { kind: "exde", base: "https://minasidor-danderyd-az.exdesystems.se/api/api/external" },
@@ -64,6 +66,13 @@ const PROVIDERS = {
   ssam: { kind: "edp", base: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup" },
   stockholm: { kind: "svoa", base: "https://www.stockholmvattenochavfall.se/villa-och-radhus/avfallstjanster/nar-kommer-sopbilen" },
   sundsvall: { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" },
+  // Sysav: `base` är bara reserv – `site` är sidan där den riktiga
+  // API-adressen står, och den läses vid första anropet.
+  sysav: {
+    kind: "sysav",
+    base: "https://ca-swec-sysav-public-edp-prod.bluedune-a5ae63ed.swedencentral.azurecontainerapps.io/api",
+    site: "https://www.sysav.se/privat/min-sophamtning/"
+  },
   taby: { kind: "exde", base: "https://minasidor-taby-az.exdesystems.se/api/api/external" },
   telge: { kind: "thorweb", base: "https://www.telge.se/api/thorweb/garbagecollection" },
   uppsalavatten: { kind: "edp", base: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup" },
@@ -83,6 +92,25 @@ const AVFALLSSLAG_SUNDSVALL = {
   PAPER: "Pappersförpackningar",
   PLASTIC: "Plastförpackningar"
 };
+
+// Vissa leverantörer kräver ett uppslag innan det riktiga anropet – en
+// bas-URL som står på deras sida, eller en token som delas ut anonymt. Båda
+// är dyra att göra om vid varje sökning och lever länge, så de sparas en
+// stund. Nyckeln är providerns bas-URL.
+const UPPSLAG_TTL_MS = 30 * 60 * 1000;
+const uppslagsCache = new Map();
+
+function hämtaCache(nyckel) {
+  const post = uppslagsCache.get(nyckel);
+  if (!post) return null;
+  if (Date.now() - post.tid > UPPSLAG_TTL_MS) { uppslagsCache.delete(nyckel); return null; }
+  return post.värde;
+}
+
+function sparaCache(nyckel, värde) {
+  uppslagsCache.set(nyckel, { tid: Date.now(), värde });
+  return värde;
+}
 
 // EXDE Systems produkt THOR, delad av `exde` och `thorweb`. Serien innehåller
 // flera tillfällen per avfallsslag, kommer osorterad och sträcker sig bakåt i
@@ -393,6 +421,115 @@ const ADAPTERS = {
         }
       }
       return JSON.stringify({ RhServices: [...tidigast.values()] });
+    }
+  },
+
+  // Sysav (Svedala, Lomma, Kävlinge). API-adressen är en genererad
+  // Azure-adress som står i attributet data-api på deras egen sida. Den kan
+  // ändras, så den läses därifrån i stället för att hårdkodas – men bara en
+  // gång per process, inte inför varje anrop.
+  sysav: {
+    async resolve(provider, endpoint, params, { fetchImpl = fetch, timeoutMs = UPSTREAM_TIMEOUT_MS } = {}) {
+      const cachad = hämtaCache(provider.base);
+      if (cachad) return cachad;
+      const res = await fetchImpl(provider.site, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" },
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      if (!res.ok) return {};
+      const träff = (await res.text()).match(/data-api="([^"]+)"/);
+      return träff ? sparaCache(provider.base, { apiBase: träff[1] }) : {};
+    },
+    request(provider, endpoint, params) {
+      const bas = ((params && params.resolved) || {}).apiBase || provider.base;
+      const värde = endpoint === "SearchAdress"
+        ? anropsvarde(params, "searchText")
+        : anropsvarde(params, "address");
+      return {
+        url: bas + (endpoint === "SearchAdress" ? "/PickupSchedules/findbuilding/" : "/PickupSchedules/foraddress/") +
+             encodeURIComponent(värde),
+        method: "GET",
+        headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" }
+      };
+    },
+    normalize(endpoint, text, { today } = {}) {
+      const data = JSON.parse(text);
+      const lista = Array.isArray(data) ? data : [];
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({ Succeeded: true, Buildings: lista.filter(a => typeof a === "string") });
+      }
+      const idag = today || svenskDatum(new Date());
+      return JSON.stringify({
+        RhServices: lista
+          .filter(t => t && t.nextPickupDate && String(t.nextPickupDate).slice(0, 10) >= idag)
+          .map(t => ({
+            WasteType: t.wasteType || "",
+            NextWastePickup: String(t.nextPickupDate).slice(0, 10),
+            WastePickupFrequency: t.pickupFrequency || "",
+            BinType: { Code: "", ContainerType: t.binType || "", Size: t.binSize || null, Unit: t.binUnit || "" }
+          }))
+      });
+    }
+  },
+
+  // Affärsverken i Karlskrona. Sökvägen heter "open-api" och token delas ut
+  // anonymt – inga användaruppgifter skickas – men den krävs på varje anrop.
+  affarsverken: {
+    async resolve(provider, endpoint, params, { fetchImpl = fetch, timeoutMs = UPSTREAM_TIMEOUT_MS } = {}) {
+      const cachad = hämtaCache(provider.base);
+      if (cachad) return cachad;
+      const res = await fetchImpl(provider.base + "/login?BrandName=" + encodeURIComponent(provider.brand || ""), {
+        method: "POST",
+        // Utan Content-Length: 0 svarar tjänsten 411 Length Required.
+        headers: { "Content-Length": "0", "Accept": "application/json" },
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      if (!res.ok) return {};
+      const token = (await res.text()).trim().replace(/^"|"$/g, "");
+      return token ? sparaCache(provider.base, { token }) : {};
+    },
+    request(provider, endpoint, params) {
+      const token = ((params && params.resolved) || {}).token || "";
+      const headers = {
+        "Accept": "application/json",
+        "Authorization": "Bearer " + token,
+        "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)"
+      };
+      if (endpoint === "SearchAdress") {
+        return {
+          url: provider.base + "/waste/buildings/search?address=" + encodeURIComponent(anropsvarde(params, "searchText")),
+          method: "GET", headers
+        };
+      }
+      // Schemat slås upp på den base64-kodade sökkontexten `query`, inte på
+      // buildingId – därför är det den som bärs med i parentesen.
+      return {
+        url: provider.base + "/waste/buildings/" + encodeURIComponent(idUrParentes(anropsvarde(params, "address"))),
+        method: "GET", headers
+      };
+    },
+    normalize(endpoint, text, { today } = {}) {
+      const data = JSON.parse(text);
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({
+          Succeeded: true,
+          Buildings: (Array.isArray(data) ? data : [])
+            .filter(a => a && a.address && a.query)
+            .map(a => `${a.address} (${a.query})`)
+        });
+      }
+      const idag = today || svenskDatum(new Date());
+      return JSON.stringify({
+        RhServices: ((data && data.services) || [])
+          // Tjänster utan datum ligger kvar i svaret men är inte en tömning.
+          .filter(t => t && t.nextPickup && String(t.nextPickup).slice(0, 10) >= idag)
+          .map(t => ({
+            WasteType: t.title || "",
+            NextWastePickup: String(t.nextPickup).slice(0, 10),
+            WastePickupFrequency: t.pickupFrequencyDescription || "",
+            BinType: { Code: "", ContainerType: "", Size: t.binSize || null, Unit: t.binSizeUnit || "" }
+          }))
+      });
     }
   },
 
