@@ -86,11 +86,8 @@ const ADAPTERS = {
   // svarar med rena arrayer: adressökningen ger strängar, schemat ger en post
   // per tömningstillfälle – hela serien, inte bara nästa gång.
   exde: {
-    request(provider, endpoint, { search }) {
-      const params = new URLSearchParams(search || "");
-      const adress = endpoint === "SearchAdress"
-        ? (params.get("searchText") || "")
-        : (params.get("address") || "");
+    request(provider, endpoint, params) {
+      const adress = anropsvarde(params, endpoint === "SearchAdress" ? "searchText" : "address");
       return {
         url: provider.base + (endpoint === "SearchAdress" ? "/autocompleteAllPost/" : "/schedulePost/"),
         // Även schemat är en POST här, till skillnad från EDP:s GET.
@@ -132,13 +129,12 @@ const ADAPTERS = {
   // datumserien. Appen frågar i två steg, så endpointen anropas två gånger –
   // andra gången för att plocka ut just den valda adressens serie.
   nsr: {
-    request(provider, endpoint, { search }) {
-      const params = new URLSearchParams(search || "");
+    request(provider, endpoint, params) {
       const fråga = endpoint === "SearchAdress"
-        ? (params.get("searchText") || "")
+        ? anropsvarde(params, "searchText")
         // Adressen kommer tillbaka som "Gatan 1, Ort (id)"; sökningen vill ha
         // gatuadressen, inte orten eller id:t.
-        : String(params.get("address") || "").replace(/\s*\([^)]*\)\s*$/, "").split(",")[0].trim();
+        : anropsvarde(params, "address").replace(/\s*\([^)]*\)\s*$/, "").split(",")[0].trim();
       return {
         url: provider.base + "/search?query=" + encodeURIComponent(fråga),
         method: "GET",
@@ -155,7 +151,7 @@ const ADAPTERS = {
           Buildings: träffar.filter(t => t && t.id).map(t => `${t.Adress}, ${t.Ort} (${t.id})`)
         });
       }
-      const valdId = idUrParentes(new URLSearchParams((params && params.search) || "").get("address"));
+      const valdId = idUrParentes(anropsvarde(params, "address"));
       const träff = träffar.find(t => t && t.id === valdId);
       const exec = (träff && träff.Exec) || {};
       const datum = exec.Datum || [], typer = exec.AvfallsTyp || [], veckor = exec.DatumWeek || [];
@@ -186,9 +182,9 @@ const ADAPTERS = {
   appbolaget: {
     // Sökningen ger adressens uuid, men schemat slås upp på fastighetsnumret,
     // som bara finns på adressens egen resurs. Därför ett uppslag emellan.
-    async resolve(provider, endpoint, { search }, { fetchImpl = fetch, timeoutMs = UPSTREAM_TIMEOUT_MS } = {}) {
+    async resolve(provider, endpoint, params, { fetchImpl = fetch, timeoutMs = UPSTREAM_TIMEOUT_MS } = {}) {
       if (endpoint !== "GetWastePickupSchedule") return {};
-      const uuid = idUrParentes(new URLSearchParams(search || "").get("address"));
+      const uuid = idUrParentes(anropsvarde(params, "address"));
       if (!uuid) return {};
       const res = await fetchImpl(provider.base + "/waste/addresses/" + encodeURIComponent(uuid), {
         method: "GET", headers: appbolagetHeaders(provider), signal: AbortSignal.timeout(timeoutMs)
@@ -197,16 +193,15 @@ const ADAPTERS = {
       const data = JSON.parse(await res.text());
       return { propertyId: (data && data.data && data.data.property_id) || "" };
     },
-    request(provider, endpoint, { search, resolved }) {
-      const params = new URLSearchParams(search || "");
+    request(provider, endpoint, params) {
       const headers = appbolagetHeaders(provider);
       if (endpoint === "SearchAdress") {
         return {
-          url: provider.base + "/waste/addresses/search?query=" + encodeURIComponent(params.get("searchText") || ""),
+          url: provider.base + "/waste/addresses/search?query=" + encodeURIComponent(anropsvarde(params, "searchText")),
           method: "GET", headers
         };
       }
-      const id = (resolved && resolved.propertyId) || "";
+      const id = ((params && params.resolved) || {}).propertyId || "";
       return {
         url: provider.base + "/@universal/waste/properties/" + encodeURIComponent(id) + "/?unit=" + provider.unit,
         method: "GET", headers
@@ -253,6 +248,20 @@ const ADAPTERS = {
     }
   }
 };
+
+// Hämtar en parameter ur anropet oavsett om klienten la den i URL:en eller i
+// bodyn. Gränssnittet POSTar söktexten som formulärdata; EDP-adaptern
+// vidarebefordrar bodyn orörd och behöver aldrig titta, men adaptrar som
+// bygger om anropet måste kunna läsa båda.
+function anropsvarde(params, namn) {
+  const iUrl = new URLSearchParams((params && params.search) || "").get(namn);
+  if (iUrl) return iUrl;
+  const typ = String((params && params.contentType) || "").toLowerCase();
+  if (params && params.body && (!typ || typ.includes("form-urlencoded"))) {
+    return new URLSearchParams(params.body).get(namn) || "";
+  }
+  return "";
+}
 
 // Datumet för ett ögonblick räknat i svensk tid, som "2026-08-11".
 function svenskDatum(d) {

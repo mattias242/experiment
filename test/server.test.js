@@ -107,6 +107,23 @@ describe("Egenskap: proxyn vidarebefordrar bara kända kommun-anrop", () => {
     assert.equal(calls[0].opts.body, "searchText=Storgatan");
   });
 
+  it("Givet en kommun med adapter, när gränssnittet söker som det faktiskt gör, så når söktexten leverantören", async () => {
+    // Gränssnittet POSTar söktexten som formulärdata utan att lägga den i
+    // URL:en. EDP-adaptern vidarebefordrar bodyn orörd, så bristen syntes
+    // aldrig där – men adaptrar som bygger om anropet sökte på tom sträng.
+    for (const kommun of ["lsr", "nsr", "hassleholm", "okrab"]) {
+      calls.length = 0;
+      await fetch(base(server) + "/api/" + kommun + "/SearchAdress", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "searchText=" + encodeURIComponent("Storgatan 1")
+      });
+      assert.equal(calls.length, 1, kommun);
+      const skickat = calls[0].opts.body ? String(calls[0].opts.body) : calls[0].url;
+      assert.match(decodeURIComponent(skickat), /Storgatan 1/, kommun + " tappade söktexten");
+    }
+  });
+
   it("Givet en äldre klient utan kommun i sökvägen, när den anropar /api/SearchAdress, så antas Stenungsund", async () => {
     calls.length = 0;
     await fetch(base(server) + "/api/SearchAdress", { method: "POST", body: "searchText=x" });

@@ -8,6 +8,30 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const { PROVIDERS, adapterFor, fetchSchedule } = require("../adapters.js");
 
+describe("Egenskap: söktexten hittas oavsett hur klienten skickar den", () => {
+  // Gränssnittet POSTar söktexten som formulärdata i bodyn, inte i URL:en.
+  // EDP-adaptern vidarebefordrar bodyn orörd och märkte aldrig skillnaden,
+  // men adaptrar som bygger om anropet måste läsa den – annars söker de på
+  // tom sträng och svaret blir hela registret, 500 eller 422.
+  const fall = [
+    ["exde", { kind: "exde", base: "https://x.invalid/api/api/external" }, r => JSON.parse(r.body).Address],
+    ["nsr", { kind: "nsr", base: "https://x.invalid/api" }, r => new URL(r.url).searchParams.get("query")],
+    ["appbolaget", { kind: "appbolaget", base: "https://x.invalid", unit: "u" }, r => new URL(r.url).searchParams.get("query")]
+  ];
+
+  for (const [namn, provider, plocka] of fall) {
+    it(`Givet att ${namn}-kommunen söks som gränssnittet gör, så används söktexten ur bodyn`, () => {
+      const r = adapterFor(provider).request(provider, "SearchAdress", {
+        search: "",
+        method: "POST",
+        body: "searchText=" + encodeURIComponent("Storgatan 1"),
+        contentType: "application/x-www-form-urlencoded"
+      });
+      assert.equal(plocka(r), "Storgatan 1", namn + " tappade söktexten");
+    });
+  }
+});
+
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
     const kinds = new Set(["edp", "exde", "appbolaget", "nsr"]);
