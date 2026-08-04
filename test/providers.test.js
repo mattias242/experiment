@@ -71,7 +71,10 @@ const VERIFIED_2026_08_04 = {
   merab: "https://edpmobile.merab.se/FutureWeb/SimpleWastePickup",
   gotland: "https://edpfuture.gotland.se/FutureWeb/SimpleWastePickup",
   "vivab-falkenberg": "https://minasidor.vivab.info/FutureWebFalken/SimpleWastePickup",
-  "vivab-varberg": "https://minasidor.vivab.info/FutureWebVarberg/SimpleWastePickup"
+  "vivab-varberg": "https://minasidor.vivab.info/FutureWebVarberg/SimpleWastePickup",
+  hudiksvall: "https://futureweb.hudiksvall.se/FutureWeb/SimpleWastePickup",
+  kramfors: "https://futureweb.kramfors.se/EDPFutureWeb/SimpleWastePickup",
+  solleftea: "https://futureweb.solleftea.se/FutureWeb/SimpleWastePickup"
 };
 
 describe("Egenskap: kommunerna från kartläggningen 2026-08-04 finns med", () => {
