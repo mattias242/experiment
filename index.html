@@ -611,6 +611,16 @@
       // API:et säger "FYRFACK"/"TVÅFACK" utan att ange facken, och kommunens
       // egen sida gör det inte heller – därför inga packages här.
     },
+    june: {
+      label: "June Avfall & Miljö (Jönköping, Habo, Mullsjö)",
+      base: "https://minasidor.juneavfall.se/FutureWebJuneBasic/SimpleWastePickup",
+      site: "https://juneavfall.se/sophamtning/nar-kommer-sopbilen",
+      // Fackinnehåll enligt juneavfall.se "Sophämtning fyrfackskärl" (läst 2026-08-04).
+      packages: {
+        "fni kärl 1": ["Matavfall", "Restavfall", "Tidningar", "Färgat glas"],
+        "fni kärl 2": ["Pappersförpackningar", "Plastförpackningar", "Ofärgat glas", "Metallförpackningar"]
+      }
+    },
     kiruna: {
       label: "Kiruna (Tekniska Verken)",
       base: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup",
@@ -640,6 +650,18 @@
       label: "Lerums kommun",
       base: "https://vatjanst.lerum.se/FutureWeb/SimpleWastePickup",
       site: "https://lerum.se/bygga-bo-och-miljo/avfall-och-atervinning/hemsortering-for-hushall/hemsortering-for-villa-och-fritidshus"
+    },
+    ludvika: {
+      label: "Ludvika (WBAB)",
+      base: "https://futureweb.wbab.se/EDPFutureWeb/SimpleWastePickup",
+      site: "https://www.wbab.se/sidor/avfallochatervinning/narhamtarvidittavfall.4.69f5d6ac154de39107288440.html",
+      // Fackinnehåll enligt wbab.se "Avfallshämtning" (läst 2026-08-04). Observera
+      // att WBAB numrerar tvärtom mot t.ex. Gotland och June: kärl 1 är
+      // förpackningarna och töms var fjärde vecka, kärl 2 är mat- och restavfall.
+      packages: {
+        "kärl 1": ["Pappersförpackningar", "Plastförpackningar", "Ofärgat glas", "Metallförpackningar"],
+        "kärl 2": ["Matavfall", "Restavfall", "Färgat glas", "Tidningar"]
+      }
     },
     lund: {
       label: "Lunds kommun",
