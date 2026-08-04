@@ -145,7 +145,11 @@ function createHandler({ fetchImpl = fetch, reminders, alarm, limits } = {}) {
         // anslutningar öppna hos oss.
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
       });
-      const text = await upstream.text();
+      // Somliga tjänster svarar i ISO-8859-1. Läses de som UTF-8 blir å ä ö
+      // obegripliga, så adaptern får tala om vilken teckenkodning som gäller.
+      const text = call.charset === "latin1"
+        ? Buffer.from(await upstream.arrayBuffer()).toString("latin1")
+        : await upstream.text();
       if (!upstream.ok) {
         console.error(`Upstream ${endpoint}: HTTP ${upstream.status} – ${text.slice(0, 200)}`);
         // 5xx är driftfel hos kommunen och värt ett larm; 4xx är bara ett

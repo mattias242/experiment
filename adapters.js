@@ -30,6 +30,9 @@ const PROVIDERS = {
   },
   "herrljunga-vargarda": { kind: "edp", base: "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup" },
   hudiksvall: { kind: "edp", base: "https://futureweb.hudiksvall.se/FutureWeb/SimpleWastePickup" },
+  // Indecta – två kunder, äldst och skörast av allt i listan.
+  sam: { kind: "indecta", base: "https://webbservice.indecta.se/kunder/sam/kalender/basfiler" },
+  sjobo: { kind: "indecta", base: "https://webbservice.indecta.se/kunder/sjobo/kalender/basfiler" },
   june: { kind: "edp", base: "https://minasidor.juneavfall.se/FutureWebJuneBasic/SimpleWastePickup" },
   kiruna: { kind: "edp", base: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup" },
   kramfors: { kind: "edp", base: "https://futureweb.kramfors.se/EDPFutureWeb/SimpleWastePickup" },
@@ -92,6 +95,56 @@ const AVFALLSSLAG_SUNDSVALL = {
   PAPER: "Pappersförpackningar",
   PLASTIC: "Plastförpackningar"
 };
+
+// Indectas kalender märker cellerna med avfallsslag i CSS-klassen. Suffixet
+// "-H" betyder helgjusterad tömning och är samma avfallsslag.
+const AVFALLSSLAG_INDECTA = {
+  HREST: "Restavfall", HMAT: "Matavfall", HPAPP: "Pappersförpackningar",
+  HPLAST: "Plastförpackningar", HGLASF: "Färgat glas", HGLASO: "Ofärgat glas",
+  HMET: "Metallförpackningar", HTID: "Tidningar",
+  // Sjöbo namnger inte fraktionerna, bara kärlen. Deras egen beteckning är
+  // ärligare än en gissning om vad facken rymmer.
+  FF1: "Fyrfack 1", FF2: "Fyrfack 2"
+};
+const INDECTA_MÅNADER = ["Januari", "Februari", "Mars", "April", "Maj", "Juni",
+  "Juli", "Augusti", "September", "Oktober", "November", "December"];
+
+// Plockar ut (månad, dag, avfallskoder) ur Indectas årskalender. Dagcellerna
+// är nästlade tabeller, så de avgränsas av var nästa dagcell börjar snarare
+// än av en avslutande tagg.
+function indectaDagar(html) {
+  const månadsPos = INDECTA_MÅNADER
+    .map((namn, i) => ({ pos: html.indexOf(namn), månad: i + 1 }))
+    .filter(m => m.pos !== -1)
+    .sort((a, b) => a.pos - b.pos);
+  const dagar = [];
+  for (let i = 0; i < månadsPos.length; i++) {
+    const block = html.slice(månadsPos[i].pos, i + 1 < månadsPos.length ? månadsPos[i + 1].pos : html.length);
+    const celler = [...block.matchAll(/<td class="(styleDayAll|styleDayLor|styleDaySon|styleDayPrevNextMonth)"/g)];
+    for (let c = 0; c < celler.length; c++) {
+      const inner = block.slice(celler[c].index, c + 1 < celler.length ? celler[c + 1].index : block.length);
+      // Fyllnadsdagar från intilliggande månader hör inte till det här blocket.
+      if (celler[c][1] === "styleDayPrevNextMonth") continue;
+      const nr = inner.match(/>(\d{1,2})<\/div>/);
+      if (!nr) continue;
+      // SÅM märker cellerna med avfallsslag (HREST), Sjöbo med kärlnummer (FF1).
+      const koder = new Set([...inner.matchAll(/<td class="(H[A-ZÅÄÖ]+?|FF\d)(?:-H)?"/g)].map(m => m[1]));
+      if (koder.size) dagar.push({ månad: månadsPos[i].månad, dag: Number(nr[1]), koder: [...koder] });
+    }
+  }
+  return dagar;
+}
+
+// Procentkodning med latin1-bytes. Indecta är ISO-8859-1 hela vägen, så
+// UTF-8-kodade å ä ö ger inga träffar.
+function latin1Kodad(text) {
+  return [...String(text)].map(tecken => {
+    const kod = tecken.codePointAt(0);
+    if (/[A-Za-z0-9_.!~*'()-]/.test(tecken)) return tecken;
+    if (tecken === " ") return "%20";
+    return kod <= 0xff ? "%" + kod.toString(16).toUpperCase().padStart(2, "0") : encodeURIComponent(tecken);
+  }).join("");
+}
 
 // Vissa leverantörer kräver ett uppslag innan det riktiga anropet – en
 // bas-URL som står på deras sida, eller en token som delas ut anonymt. Båda
@@ -533,6 +586,74 @@ const ADAPTERS = {
     }
   },
 
+  // Indecta (SÅM: Gislaved, Gnosjö, Vaggeryd, Värnamo – samt Sjöbo). Den
+  // äldsta tjänsten i listan: ISO-8859-1 hela vägen, pipe-separerad text för
+  // adresserna och en årskalender i HTML för schemat. Det finns inget
+  // maskinläsbart alternativ – vi frågade efter JSON-varianter och fick 404.
+  // Parsningen är därför känslig för layoutändringar hos leverantören.
+  indecta: {
+    request(provider, endpoint, params) {
+      const headers = { "Accept": "text/html,*/*", "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" };
+      if (endpoint === "SearchAdress") {
+        // Parametern heter `svar`, inte `q`. Med `q` svarar tjänsten 200 och
+        // noll bytes, vilket ser ut som "inga träffar".
+        return {
+          url: provider.base + "/laddaadresser.php?svar=" + latin1Kodad(anropsvarde(params, "searchText")) + "&limit=100",
+          method: "GET", headers, charset: "latin1"
+        };
+      }
+      // Adressen bär "Gata N, ORT (nrA)" – tjänsten vill ha delarna var för sig.
+      const hel = anropsvarde(params, "address");
+      const nrA = idUrParentes(hel);
+      const utanId = hel.replace(/\s*\([^)]*\)\s*$/, "");
+      const komma = utanId.lastIndexOf(",");
+      const gata = komma === -1 ? utanId : utanId.slice(0, komma).trim();
+      const ort = komma === -1 ? "" : utanId.slice(komma + 1).trim();
+      return {
+        url: provider.base + "/onlinekalender.php?hsG=" + latin1Kodad(gata).replace(/%20/g, "+") +
+             "&hsO=" + latin1Kodad(ort) + (nrA ? "&nrA=" + encodeURIComponent(nrA) : ""),
+        method: "GET", headers, charset: "latin1"
+      };
+    },
+    normalize(endpoint, text, { today, year } = {}) {
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({
+          Succeeded: true,
+          Buildings: String(text).split(/\r?\n/)
+            .map(rad => rad.split("|"))
+            // fält: adress | ort | ? | anläggningsnummer | postnummer
+            // SÅM svarar med fem fält, Sjöbo med två. Anläggningsnumret
+            // finns bara i den längre varianten.
+            .filter(f => f.length >= 2 && f[0].trim() && f[1].trim())
+            .map(f => f.length >= 4 && f[3].trim()
+              ? `${f[0].trim()}, ${f[1].trim()} (${f[3].trim()})`
+              : `${f[0].trim()}, ${f[1].trim()}`)
+        });
+      }
+      const idag = today || svenskDatum(new Date());
+      const år = year || Number(idag.slice(0, 4));
+      const tidigast = new Map();
+      for (const { månad, dag, koder } of indectaDagar(String(text))) {
+        const datum = `${år}-${String(månad).padStart(2, "0")}-${String(dag).padStart(2, "0")}`;
+        if (datum < idag) continue;
+        for (const kod of koder) {
+          const typ = AVFALLSSLAG_INDECTA[kod];
+          if (!typ) continue;
+          const befintlig = tidigast.get(typ);
+          if (!befintlig || datum < befintlig.NextWastePickup) {
+            tidigast.set(typ, {
+              WasteType: typ,
+              NextWastePickup: datum,
+              WastePickupFrequency: "",
+              BinType: { Code: "", ContainerType: "", Size: null, Unit: "" }
+            });
+          }
+        }
+      }
+      return JSON.stringify({ RhServices: [...tidigast.values()] });
+    }
+  },
+
   // Appbolagets "universal"-API. Kommunen väljs med headern Unit mot
   // /waste/… men med query-parametern unit mot /@universal/… – samma värde,
   // två olika sätt att skicka det.
@@ -663,7 +784,10 @@ async function fetchSchedule(provider, building, { fetchImpl = fetch, timeoutMs 
     err.status = res.status;
     throw err;
   }
-  return JSON.parse(adapter.normalize("GetWastePickupSchedule", await res.text(), { params }));
+  const text = req.charset === "latin1"
+    ? Buffer.from(await res.arrayBuffer()).toString("latin1")
+    : await res.text();
+  return JSON.parse(adapter.normalize("GetWastePickupSchedule", text, { params }));
 }
 
 module.exports = { PROVIDERS, ADAPTERS, adapterFor, fetchSchedule, UPSTREAM_TIMEOUT_MS };

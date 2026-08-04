@@ -34,7 +34,7 @@ describe("Egenskap: söktexten hittas oavsett hur klienten skickar den", () => {
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd", "svoa", "sundsvall", "thorweb", "lumire", "sysav", "affarsverken"]);
+    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd", "svoa", "sundsvall", "thorweb", "lumire", "sysav", "affarsverken", "indecta"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -614,6 +614,104 @@ describe("Egenskap: Affärsverkens token hämtas anonymt och återanvänds", () 
     assert.equal(ut.RhServices.length, 1);
     assert.equal(ut.RhServices[0].WasteType, "Matavfall");
     assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-10");
+  });
+});
+
+describe("Egenskap: Indectas kalender läses ur HTML", () => {
+  const ind = { kind: "indecta", base: "https://exempel.invalid/kunder/sam/kalender/basfiler" };
+
+  it("Givet en adressökning, när anropet byggs, så heter parametern svar", () => {
+    const r = adapterFor(ind).request(ind, "SearchAdress", {
+      body: "searchText=" + encodeURIComponent("Storgatan"), contentType: "application/x-www-form-urlencoded"
+    });
+    // Med `q` – som sidans egen jQuery-plugin antyder – svarar tjänsten 200
+    // och noll bytes.
+    assert.match(r.url, /laddaadresser\.php\?svar=Storgatan/);
+    assert.equal(r.charset, "latin1");
+  });
+
+  it("Givet söktext med å ä ö, när anropet byggs, så kodas den som latin1", () => {
+    const r = adapterFor(ind).request(ind, "SearchAdress", {
+      body: "searchText=" + encodeURIComponent("Åsvägen"), contentType: "application/x-www-form-urlencoded"
+    });
+    // Tjänsten är ISO-8859-1 hela vägen; UTF-8-kodad å ger ingen träff.
+    assert.match(r.url, /svar=%C5sv%E4gen/);
+  });
+
+  it("Givet den pipe-separerade träfflistan, när den normaliseras, så blir adress, ort och anläggningsnummer kvar", () => {
+    const svar = "Storgatan 10|ANDERSTORP|26215|21598|33432\nStorgatan 11|ANDERSTORP|19900|21180|33432\n";
+    const ut = JSON.parse(adapterFor(ind).normalize("SearchAdress", svar));
+    assert.deepEqual(ut.Buildings, [
+      "Storgatan 10, ANDERSTORP (21598)",
+      "Storgatan 11, ANDERSTORP (21180)"
+    ]);
+  });
+
+  it("Givet en vald adress, när schemat begärs, så delas den upp i gata, ort och nummer", () => {
+    const r = adapterFor(ind).request(ind, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("Storgatan 10, ANDERSTORP (21598)")
+    });
+    assert.match(r.url, /onlinekalender\.php\?/);
+    assert.match(r.url, /hsG=Storgatan\+10/);
+    assert.match(r.url, /hsO=ANDERSTORP/);
+    assert.match(r.url, /nrA=21598/);
+  });
+
+  it("Givet årskalendern som HTML, när den läses, så blir varje avfallsslag nästa kommande datum", () => {
+    // Dagarna ligger i celler per månad; fyllnadsdagar från intilliggande
+    // månader har en egen klass och ska hoppas över, annars hamnar datum i
+    // fel månad.
+    const dag = (klass, nr, koder) =>
+      `<td class="${klass}"><table><tr><td><div class="styleInteIdag">${nr}</div></td></tr></table>` +
+      `<table><tr>${koder.map(k => `<td class="${k}"><span>x</span></td>`).join("")}</tr></table></td>`;
+    const html = "Juli" + dag("styleDayAll", 6, ["HREST", "HMAT"]) +
+      "Augusti" + dag("styleDayPrevNextMonth", 31, ["HREST"]) +
+      dag("styleDayAll", 10, ["HREST", "HMAT"]) +
+      dag("styleDayAll", 4, ["HPAPP"]) +
+      dag("styleDayLor", 21, ["HPLAST-H"]);
+    const ut = JSON.parse(adapterFor(ind).normalize("GetWastePickupSchedule", html, { today: "2026-08-05", year: 2026 }));
+    const som = t => (ut.RhServices.find(s => s.WasteType === t) || {}).NextWastePickup;
+    assert.equal(som("Restavfall"), "2026-08-10");
+    assert.equal(som("Matavfall"), "2026-08-10");
+    // Fyllnadsdagen 31 juli i augustiblocket får inte bli 31 augusti.
+    assert.equal(ut.RhServices.every(s => s.NextWastePickup !== "2026-08-31"), true);
+    // 4 augusti har passerat relativt 5 augusti.
+    assert.equal(som("Pappersförpackningar"), undefined);
+    // "-H" betyder helgjusterad och är samma avfallsslag.
+    assert.equal(som("Plastförpackningar"), "2026-08-21");
+  });
+
+  it("Givet Sjöbos variant utan anläggningsnummer, när träffarna normaliseras, så tas de ändå med", () => {
+    // Sjöbo kör en äldre mall: träffarna har bara adress och ort, inget
+    // anläggningsnummer. SÅM har fem fält, Sjöbo två.
+    const ut = JSON.parse(adapterFor(ind).normalize("SearchAdress", "Storgatan 1|Vollsjö\nStorgatan 10|Lövestad\n"));
+    assert.deepEqual(ut.Buildings, ["Storgatan 1, Vollsjö", "Storgatan 10, Lövestad"]);
+  });
+
+  it("Givet en adress utan anläggningsnummer, när schemat begärs, så utelämnas nrA", () => {
+    const r = adapterFor(ind).request(ind, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("Storgatan 1, Vollsjö")
+    });
+    assert.match(r.url, /hsG=Storgatan\+1/);
+    assert.match(r.url, /hsO=Vollsj%F6/);
+    assert.equal(/nrA=/.test(r.url), false);
+  });
+
+  it("Givet Sjöbos numrerade fack, när kalendern läses, så visas kärlets egen beteckning", () => {
+    // Sjöbo märker cellerna FF1/FF2 i stället för avfallsslag. Numret är vad
+    // tjänsten själv säger – vilka fraktioner facken rymmer står ingenstans.
+    const dag = (nr, koder) =>
+      `<td class="styleDayAll"><table><tr><td><div class="styleInteIdag">${nr}</div></td></tr></table>` +
+      `<table><tr>${koder.map(k => `<td class="${k}"><span>x</span></td>`).join("")}</tr></table></td>`;
+    const html = "Augusti" + dag(12, ["FF1"]) + dag(26, ["FF2"]);
+    const ut = JSON.parse(adapterFor(ind).normalize("GetWastePickupSchedule", html, { today: "2026-08-05", year: 2026 }));
+    const som = t => (ut.RhServices.find(s => s.WasteType === t) || {}).NextWastePickup;
+    assert.equal(som("Fyrfack 1"), "2026-08-12");
+    assert.equal(som("Fyrfack 2"), "2026-08-26");
+  });
+
+  it("Givet en kalender utan tömningar, när den normaliseras, så blir listan tom i stället för att kasta", () => {
+    assert.deepEqual(JSON.parse(adapterFor(ind).normalize("GetWastePickupSchedule", "<html>Augusti</html>", { today: "2026-08-05", year: 2026 })).RhServices, []);
   });
 });
 
