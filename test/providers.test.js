@@ -68,7 +68,10 @@ const VERIFIED_2026_08_04 = {
   partille: "https://vatjanst.partille.se/FutureWeb/SimpleWastePickup",
   lund: "https://eservice431601.lund.se/Lund/FutureWeb/SimpleWastePickup",
   kristianstad: "https://edp.kristianstad.se/FutureWeb/SimpleWastePickup",
-  merab: "https://edpmobile.merab.se/FutureWeb/SimpleWastePickup"
+  merab: "https://edpmobile.merab.se/FutureWeb/SimpleWastePickup",
+  gotland: "https://edpfuture.gotland.se/FutureWeb/SimpleWastePickup",
+  "vivab-falkenberg": "https://minasidor.vivab.info/FutureWebFalken/SimpleWastePickup",
+  "vivab-varberg": "https://minasidor.vivab.info/FutureWebVarberg/SimpleWastePickup"
 };
 
 describe("Egenskap: kommunerna från kartläggningen 2026-08-04 finns med", () => {

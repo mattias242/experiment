@@ -12,6 +12,7 @@ const PROVIDERS = {
   ale: "https://edp.ale.se/FutureWeb/SimpleWastePickup",
   boden: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup",
   boras: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup",
+  gotland: "https://edpfuture.gotland.se/FutureWeb/SimpleWastePickup",
   "herrljunga-vargarda": "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup",
   kiruna: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup",
   "kretslopp-sydost": "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup",
@@ -31,7 +32,10 @@ const PROVIDERS = {
   skelleftea: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup",
   ssam: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup",
   uppsalavatten: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup",
-  vafabmiljo: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup"
+  vafabmiljo: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup",
+  // VIVAB kör en egen instans per kommun på samma värd.
+  "vivab-falkenberg": "https://minasidor.vivab.info/FutureWebFalken/SimpleWastePickup",
+  "vivab-varberg": "https://minasidor.vivab.info/FutureWebVarberg/SimpleWastePickup"
 };
 const PORT = process.env.PORT || 8080;
 const ALLOWED = new Set(["SearchAdress", "GetWastePickupSchedule"]);
