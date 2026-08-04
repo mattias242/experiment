@@ -555,9 +555,9 @@
   const LEGACY_STORAGE_KEY = "hamtschema-adress";
 
   // Alla kända EDP FutureWeb-instanser med den öppna hämtschema-tjänsten.
-  // Endpoints verifierade mot riktiga adresser 2026-08-03; de markerade med
-  // unverified gick inte att nå från testmiljön (geo-blockering/brandvägg)
-  // men har samma dokumenterade API och kan fungera från svenska nät.
+  // Samtliga verifierade mot riktiga adresser 2026-08-04: både adressökning
+  // och schemahämtning ger korrekta datum. En instans som inte gått att nå
+  // sätter unverified: true och märks "(otestad)" i väljaren.
   const PROVIDERS = {
     // site: människoläsbar infosida om sophämtning hos respektive
     // kommun/bolag – används som källänk i sidfoten (verifierade 2026-08-03).
