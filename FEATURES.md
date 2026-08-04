@@ -2,8 +2,9 @@
 
 Vad appen gör, dokumenterat som BDD-scenarier (Givet/När/Så). Serverbeteendena
 är körbara: varje scenario under "Servern" och "Proxyn" motsvarar ett test i
-`test/server.test.js` (`node --test`). UI-beteendena verifieras än så länge
-för hand mot livesajten.
+`test/server.test.js`, och scenarierna om kommunlistan motsvarar
+`test/providers.test.js` (`node --test`). Övriga UI-beteenden verifieras än så
+länge för hand mot livesajten.
 
 ## Egenskap: Kommunval
 
@@ -19,6 +20,13 @@ Scenario: Senaste valet minns
   Givet att besökaren tidigare valt kommun och adress
   När sidan öppnas igen i samma webbläsare
   Så är kommunen förvald och schemat hämtas direkt för den sparade adressen
+
+Scenario: Kommunlistan står på två ställen men får aldrig glida isär
+  Givet att proxyn har sin allowlist i server.js och gränssnittet sin lista i index.html
+  När listorna jämförs
+  Så innehåller de exakt samma kommuner med exakt samma bas-URL
+  Och varje kommun har ett läsbart namn och en människoläsbar källänk
+  (annars skulle besökaren kunna välja en kommun som proxyn vägrar)
 
 Scenario: Byte av kommun rensar adressen
   Givet att en adress är ifylld eller ett schema visas
