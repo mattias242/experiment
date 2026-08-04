@@ -65,7 +65,10 @@ const VERIFIED_2026_08_04 = {
   kungalv: "https://minasidor-va-avfall.kungalv.se/FutureWeb/SimpleWastePickup",
   lerum: "https://vatjanst.lerum.se/FutureWeb/SimpleWastePickup",
   ale: "https://edp.ale.se/FutureWeb/SimpleWastePickup",
-  partille: "https://vatjanst.partille.se/FutureWeb/SimpleWastePickup"
+  partille: "https://vatjanst.partille.se/FutureWeb/SimpleWastePickup",
+  lund: "https://eservice431601.lund.se/Lund/FutureWeb/SimpleWastePickup",
+  kristianstad: "https://edp.kristianstad.se/FutureWeb/SimpleWastePickup",
+  merab: "https://edpmobile.merab.se/FutureWeb/SimpleWastePickup"
 };
 
 describe("Egenskap: kommunerna från kartläggningen 2026-08-04 finns med", () => {

@@ -604,6 +604,11 @@
       base: "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup",
       site: "https://www.kretsloppsydost.se/privat/toemningsdag/"
     },
+    kristianstad: {
+      label: "Kristianstad (Renhållningen Kristianstad)",
+      base: "https://edp.kristianstad.se/FutureWeb/SimpleWastePickup",
+      site: "https://renhallningen-kristianstad.se/hushall/villa-fritidshus/tomning-av-sopkarl/tomningschema/"
+    },
     kungalv: {
       label: "Kungälvs kommun",
       base: "https://minasidor-va-avfall.kungalv.se/FutureWeb/SimpleWastePickup",
@@ -613,6 +618,11 @@
       label: "Lerums kommun",
       base: "https://vatjanst.lerum.se/FutureWeb/SimpleWastePickup",
       site: "https://lerum.se/bygga-bo-och-miljo/avfall-och-atervinning/hemsortering-for-hushall/hemsortering-for-villa-och-fritidshus"
+    },
+    lund: {
+      label: "Lunds kommun",
+      base: "https://eservice431601.lund.se/Lund/FutureWeb/SimpleWastePickup",
+      site: "https://lund.se/bygga-och-bo/avfall-och-atervinning/nar-toms-mitt-karl"
     },
     lidkoping: {
       label: "Lidköpings kommun",
@@ -638,6 +648,15 @@
         "fyrfack 1": ["Matavfall", "Pappersförpackningar", "Tidningar", "Färgat glas"],
         "fyrfack 2": ["Restavfall", "Plastförpackningar", "Metallförpackningar", "Ofärgat glas"]
       }
+    },
+    merab: {
+      label: "MERAB (Eslöv, Höör, Hörby)",
+      base: "https://edpmobile.merab.se/FutureWeb/SimpleWastePickup",
+      site: "https://www.merab.se/privat/min-sophamtning/nar-toms-mitt-karl/"
+      // API:et säger bara "Fyrfackskärl 1"/"Fyrfackskärl 2". Till skillnad från
+      // Borås och Mark anger merab.se inte vilka fraktioner som hör till vilket
+      // kärl, så här står inga packages – hellre kommunens egen etikett än
+      // en gissning byggd på hur andra kommuner sorterar.
     },
     nvoa: {
       label: "Nacka (Nacka vatten och avfall)",
