@@ -27,6 +27,8 @@ const PROVIDERS = {
   kungalv: { kind: "edp", base: "https://minasidor-va-avfall.kungalv.se/FutureWeb/SimpleWastePickup" },
   lerum: { kind: "edp", base: "https://vatjanst.lerum.se/FutureWeb/SimpleWastePickup" },
   lidkoping: { kind: "edp", base: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup" },
+  // LSR kör EXDE Systems (THOR), inte EDP – därav annan sort och annan bas-URL-form.
+  lsr: { kind: "exde", base: "https://minasidor.lsr.nu/api/api/external" },
   ljungby: { kind: "edp", base: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup" },
   ludvika: { kind: "edp", base: "https://futureweb.wbab.se/EDPFutureWeb/SimpleWastePickup" },
   lund: { kind: "edp", base: "https://eservice431601.lund.se/Lund/FutureWeb/SimpleWastePickup" },
@@ -60,6 +62,50 @@ const ADAPTERS = {
       return { url: provider.base + "/" + endpoint + (search || ""), method: method || "GET", headers, body };
     },
     normalize(endpoint, text) { return text; }
+  },
+
+  // EXDE Systems (produktnamnet är THOR). Två POST-endpoints som tar JSON och
+  // svarar med rena arrayer: adressökningen ger strängar, schemat ger en post
+  // per tömningstillfälle – hela serien, inte bara nästa gång.
+  exde: {
+    request(provider, endpoint, { search }) {
+      const params = new URLSearchParams(search || "");
+      const adress = endpoint === "SearchAdress"
+        ? (params.get("searchText") || "")
+        : (params.get("address") || "");
+      return {
+        url: provider.base + (endpoint === "SearchAdress" ? "/autocompleteAllPost/" : "/schedulePost/"),
+        // Även schemat är en POST här, till skillnad från EDP:s GET.
+        method: "POST",
+        headers: { "Accept": "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ Address: adress })
+      };
+    },
+    normalize(endpoint, text) {
+      const data = JSON.parse(text);
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({ Succeeded: true, Buildings: Array.isArray(data) ? data : [] });
+      }
+      // Serien innehåller flera tillfällen per avfallsslag och kommer inte
+      // sorterad. Appen visar nästa tömning, så bara det tidigaste datumet
+      // per avfallsslag behålls.
+      const tidigast = new Map();
+      for (const post of Array.isArray(data) ? data : []) {
+        const typ = post.typeOfWasteDescription || post.wasteType || post.typeOfWaste;
+        const datum = typeof post.date === "string" ? post.date.slice(0, 10) : null;
+        if (!typ || !datum) continue;
+        const befintlig = tidigast.get(typ);
+        if (!befintlig || datum < befintlig.NextWastePickup) {
+          tidigast.set(typ, {
+            WasteType: typ,
+            NextWastePickup: datum,
+            WastePickupFrequency: post.collectionFrequency || "",
+            BinType: { Code: post.containerType || "", ContainerType: "", Size: null, Unit: "" }
+          });
+        }
+      }
+      return JSON.stringify({ RhServices: [...tidigast.values()] });
+    }
   }
 };
 

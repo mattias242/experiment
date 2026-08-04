@@ -79,6 +79,24 @@ const VERIFIED_2026_08_04 = {
   ludvika: "https://futureweb.wbab.se/EDPFutureWeb/SimpleWastePickup"
 };
 
+// Kommuner på andra plattformar än EDP. De kräver var sin adapter, så här
+// står sorten med – en felaktig sort ger tyst fel svar, inte ett undantag.
+const VERIFIED_OTHER = {
+  lsr: { kind: "exde", base: "https://minasidor.lsr.nu/api/api/external" }
+};
+
+describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {
+  it("Givet en icke-EDP-kommun, när listan läses, så finns den med sin provade sort och bas-URL", () => {
+    for (const [key, want] of Object.entries(VERIFIED_OTHER)) {
+      assert.deepEqual(
+        { kind: (SERVER_PROVIDERS[key] || {}).kind, base: (SERVER_PROVIDERS[key] || {}).base },
+        want,
+        key + " saknas eller har fel sort/bas-URL"
+      );
+    }
+  });
+});
+
 describe("Egenskap: kommunerna från kartläggningen 2026-08-04 finns med", () => {
   it("Givet de verifierade kommunerna, när listan läses, så finns var och en med sin provade bas-URL", () => {
     for (const [key, base] of Object.entries(VERIFIED_2026_08_04)) {

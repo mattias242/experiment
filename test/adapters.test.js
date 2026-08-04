@@ -10,7 +10,7 @@ const { PROVIDERS, adapterFor, fetchSchedule } = require("../adapters.js");
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp"]);
+    const kinds = new Set(["edp", "exde"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -38,6 +38,54 @@ describe("Egenskap: EDP-anropen ser likadana ut som förut", () => {
   it("Givet ett schemasvar, när det normaliseras, så lämnas det orört", () => {
     const svar = '{"RhServices":[{"WasteType":"Kärl 1","NextWastePickup":"2026-08-10"}]}';
     assert.equal(adapterFor(edp).normalize("GetWastePickupSchedule", svar), svar);
+  });
+});
+
+describe("Egenskap: EXDE-tjänster översätts till appens form", () => {
+  const exde = { kind: "exde", base: "https://exempel.invalid/api/api/external" };
+
+  it("Givet en adressökning, när anropet byggs, så blir det en POST med JSON-body", () => {
+    const r = adapterFor(exde).request(exde, "SearchAdress", { search: "?searchText=Storgatan", method: "POST" });
+    assert.equal(r.url, exde.base + "/autocompleteAllPost/");
+    assert.equal(r.method, "POST");
+    assert.equal(r.headers["Content-Type"], "application/json");
+    assert.deepEqual(JSON.parse(r.body), { Address: "Storgatan" });
+  });
+
+  it("Givet en lista med adresser, när svaret normaliseras, så ser det ut som EDP:s", () => {
+    const svar = JSON.stringify(["STORGATAN 12, LANDSKRONA", "STORGATAN 13, TECKOMATORP"]);
+    const ut = JSON.parse(adapterFor(exde).normalize("SearchAdress", svar));
+    assert.equal(ut.Succeeded, true);
+    assert.deepEqual(ut.Buildings, ["STORGATAN 12, LANDSKRONA", "STORGATAN 13, TECKOMATORP"]);
+  });
+
+  it("Givet en schemabegäran, när anropet byggs, så skickas hela adressen som JSON", () => {
+    const r = adapterFor(exde).request(exde, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("STORGATAN 12, LANDSKRONA"), method: "GET"
+    });
+    assert.equal(r.url, exde.base + "/schedulePost/");
+    assert.equal(r.method, "POST");
+    assert.deepEqual(JSON.parse(r.body), { Address: "STORGATAN 12, LANDSKRONA" });
+  });
+
+  it("Givet en lång tömningsserie, när den normaliseras, så blir varje avfallsslag en tjänst med sitt tidigaste datum", () => {
+    const svar = JSON.stringify([
+      { date: "2026-08-24T00:00:00", typeOfWasteDescription: "Restavfall", containerType: "K190" },
+      { date: "2026-08-10T00:00:00", typeOfWasteDescription: "Restavfall", containerType: "K190" },
+      { date: "2026-08-11T00:00:00", typeOfWasteDescription: "Matavfall", containerType: "K140" }
+    ]);
+    const ut = JSON.parse(adapterFor(exde).normalize("GetWastePickupSchedule", svar));
+    const rest = ut.RhServices.find(s => s.WasteType === "Restavfall");
+    const mat = ut.RhServices.find(s => s.WasteType === "Matavfall");
+    // Tidigaste datumet per avfallsslag – inte det första i listan.
+    assert.equal(rest.NextWastePickup, "2026-08-10");
+    assert.equal(mat.NextWastePickup, "2026-08-11");
+    assert.equal(ut.RhServices.length, 2);
+  });
+
+  it("Givet ett tomt svar, när det normaliseras, så blir det en tom lista i stället för ett fel", () => {
+    assert.deepEqual(JSON.parse(adapterFor(exde).normalize("GetWastePickupSchedule", "[]")).RhServices, []);
+    assert.deepEqual(JSON.parse(adapterFor(exde).normalize("SearchAdress", "[]")).Buildings, []);
   });
 });
 
