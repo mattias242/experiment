@@ -9,11 +9,14 @@ const { createRateLimiter, clientIp } = require("./ratelimit.js");
 // Måste hållas i synk med PROVIDERS i index.html.
 const PROVIDERS = {
   stenungsund: "https://futureweb.stenungsund.se/FutureWebBasic/SimpleWastePickup",
+  ale: "https://edp.ale.se/FutureWeb/SimpleWastePickup",
   boden: "https://edpmobile.boden.se/FutureWeb/SimpleWastePickup",
   boras: "https://kundportal.borasem.se/EDPFutureWeb/SimpleWastePickup",
   "herrljunga-vargarda": "https://edpfuture.remondis.se/EDPFutureWeb/SimpleWastePickup",
   kiruna: "https://kund.tekniskaverkenikiruna.se/FutureWebBasic/SimpleWastePickup",
   "kretslopp-sydost": "https://kundportal.kretsloppsydost.se/FutureWeb/SimpleWastePickup",
+  kungalv: "https://minasidor-va-avfall.kungalv.se/FutureWeb/SimpleWastePickup",
+  lerum: "https://vatjanst.lerum.se/FutureWeb/SimpleWastePickup",
   lidkoping: "https://futureweb.lidkoping.se/FutureWebBasic/SimpleWastePickup",
   ljungby: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup",
   lycksele: "https://future.lycksele.se/FutureWeb/SimpleWastePickup",
@@ -21,6 +24,7 @@ const PROVIDERS = {
   nvoa: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup",
   orebro: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup",
   orust: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup",
+  partille: "https://vatjanst.partille.se/FutureWeb/SimpleWastePickup",
   skelleftea: "https://wwwtk2.skelleftea.se/FutureWeb/SimpleWastePickup",
   ssam: "https://edpfuture.ssam.se/FutureWeb/SimpleWastePickup",
   uppsalavatten: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup",

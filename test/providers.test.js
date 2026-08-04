@@ -57,6 +57,25 @@ describe("Egenskap: kommunlistan är densamma i proxyn och i gränssnittet", () 
   });
 });
 
+// Kommuner som lagts till efter kartläggningen 2026-08-04. Bas-URL:erna står
+// här också, inte för att upprepa koden, utan för att testet ska gå sönder om
+// någon ändrar en URL utan att ha provat den mot kommunens tjänst först.
+// Varje rad är verifierad i båda stegen (SearchAdress + GetWastePickupSchedule).
+const VERIFIED_2026_08_04 = {
+  kungalv: "https://minasidor-va-avfall.kungalv.se/FutureWeb/SimpleWastePickup",
+  lerum: "https://vatjanst.lerum.se/FutureWeb/SimpleWastePickup",
+  ale: "https://edp.ale.se/FutureWeb/SimpleWastePickup",
+  partille: "https://vatjanst.partille.se/FutureWeb/SimpleWastePickup"
+};
+
+describe("Egenskap: kommunerna från kartläggningen 2026-08-04 finns med", () => {
+  it("Givet de verifierade kommunerna, när listan läses, så finns var och en med sin provade bas-URL", () => {
+    for (const [key, base] of Object.entries(VERIFIED_2026_08_04)) {
+      assert.equal(SERVER_PROVIDERS[key], base, key + " saknas eller har en oprövad bas-URL");
+    }
+  });
+});
+
 describe("Egenskap: varje kommun presenteras ärligt för besökaren", () => {
   it("Givet en kommun i listan, så har den ett läsbart namn och en källänk", () => {
     for (const [key, p] of Object.entries(uiProviders())) {
