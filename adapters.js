@@ -40,6 +40,9 @@ const PROVIDERS = {
   lsr: { kind: "exde", base: "https://minasidor.lsr.nu/api/api/external" },
   ljungby: { kind: "edp", base: "https://edpwebb.ljungby.se/FutureWeb/SimpleWastePickup" },
   ludvika: { kind: "edp", base: "https://futureweb.wbab.se/EDPFutureWeb/SimpleWastePickup" },
+  // Lumire lägger om insamlingen i Luleå från 2026-08-17 – bevaka att
+  // svarsformen består.
+  lumire: { kind: "lumire", base: "https://lumire.se/api/waste-pickup" },
   lund: { kind: "edp", base: "https://eservice431601.lund.se/Lund/FutureWeb/SimpleWastePickup" },
   lycksele: { kind: "edp", base: "https://future.lycksele.se/FutureWeb/SimpleWastePickup" },
   mark: { kind: "edp", base: "https://va-renhallning.mark.se/FutureWeb/SimpleWastePickup" },
@@ -62,6 +65,7 @@ const PROVIDERS = {
   stockholm: { kind: "svoa", base: "https://www.stockholmvattenochavfall.se/villa-och-radhus/avfallstjanster/nar-kommer-sopbilen" },
   sundsvall: { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" },
   taby: { kind: "exde", base: "https://minasidor-taby-az.exdesystems.se/api/api/external" },
+  telge: { kind: "thorweb", base: "https://www.telge.se/api/thorweb/garbagecollection" },
   uppsalavatten: { kind: "edp", base: "https://futureweb.uppsalavatten.se/Uppsala/FutureWeb/SimpleWastePickup" },
   vafabmiljo: { kind: "edp", base: "https://services.vafabmiljo.se/FutureWebVKFHus/SimpleWastePickup" },
   // VIVAB kör en egen instans per kommun på samma värd.
@@ -79,6 +83,35 @@ const AVFALLSSLAG_SUNDSVALL = {
   PAPER: "Pappersförpackningar",
   PLASTIC: "Plastförpackningar"
 };
+
+// EXDE Systems produkt THOR, delad av `exde` och `thorweb`. Serien innehåller
+// flera tillfällen per avfallsslag, kommer osorterad och sträcker sig bakåt i
+// tiden. Appen visar nästa tömning, så passerade datum sållas bort innan det
+// tidigaste per avfallsslag väljs – annars blir "nästa tömning" en dag som
+// redan varit.
+function normaliseraThor(endpoint, text, { today } = {}) {
+  const data = JSON.parse(text);
+  if (endpoint === "SearchAdress") {
+    return JSON.stringify({ Succeeded: true, Buildings: Array.isArray(data) ? data : [] });
+  }
+  const idag = today || svenskDatum(new Date());
+  const tidigast = new Map();
+  for (const post of Array.isArray(data) ? data : []) {
+    const typ = post.typeOfWasteDescription || post.wasteType || post.typeOfWaste;
+    const datum = typeof post.date === "string" ? post.date.slice(0, 10) : null;
+    if (!typ || !datum || datum < idag) continue;
+    const befintlig = tidigast.get(typ);
+    if (!befintlig || datum < befintlig.NextWastePickup) {
+      tidigast.set(typ, {
+        WasteType: typ,
+        NextWastePickup: datum,
+        WastePickupFrequency: post.collectionFrequency || "",
+        BinType: { Code: post.containerType || "", ContainerType: "", Size: null, Unit: "" }
+      });
+    }
+  }
+  return JSON.stringify({ RhServices: [...tidigast.values()] });
+}
 
 const ADAPTERS = {
   // EDP FutureWeb är appens interna form, så här sker ingen översättning alls:
@@ -109,32 +142,65 @@ const ADAPTERS = {
         body: JSON.stringify({ Address: adress })
       };
     },
-    normalize(endpoint, text, { today } = {}) {
-      const data = JSON.parse(text);
+    normalize: normaliseraThor
+  },
+
+  // Telge i Södertälje kör samma produkt (THOR) men lägger värdena i sökvägen
+  // i stället för i en JSON-body. Svarsformatet är identiskt, ända ner till
+  // blankstegsutfyllnaden i vehicleId – därav delad normalisering.
+  thorweb: {
+    request(provider, endpoint, params) {
+      const värde = endpoint === "SearchAdress"
+        ? anropsvarde(params, "searchText")
+        : anropsvarde(params, "address");
+      return {
+        url: provider.base + (endpoint === "SearchAdress" ? "/autocomplete/" : "/schedule/") + encodeURIComponent(värde),
+        method: "GET",
+        headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" }
+      };
+    },
+    normalize: normaliseraThor
+  },
+
+  // Lumire i Luleå. Eget REST-omslag runt EDP-data – kärlkoderna är EDP:s.
+  lumire: {
+    request(provider, endpoint, params) {
+      const headers = { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; hamtschema-app)" };
       if (endpoint === "SearchAdress") {
-        return JSON.stringify({ Succeeded: true, Buildings: Array.isArray(data) ? data : [] });
+        return { url: provider.base + "?q=" + encodeURIComponent(anropsvarde(params, "searchText")), method: "GET", headers };
       }
-      // Serien innehåller flera tillfällen per avfallsslag, kommer inte
-      // sorterad, och sträcker sig bakåt i tiden. Appen visar nästa tömning,
-      // så passerade datum sållas bort innan det tidigaste per avfallsslag
-      // väljs – annars blir "nästa tömning" en dag som redan varit.
+      return {
+        url: provider.base + "/" + encodeURIComponent(idUrParentes(anropsvarde(params, "address"))),
+        method: "GET", headers
+      };
+    },
+    normalize(endpoint, text, { today } = {}) {
+      const svar = JSON.parse(text) || {};
+      if (endpoint === "SearchAdress") {
+        return JSON.stringify({
+          Succeeded: true,
+          Buildings: (svar.addresses || [])
+            .filter(a => a && a.address && a.buildingId)
+            .map(a => `${a.address} (${a.buildingId})`)
+        });
+      }
       const idag = today || svenskDatum(new Date());
-      const tidigast = new Map();
-      for (const post of Array.isArray(data) ? data : []) {
-        const typ = post.typeOfWasteDescription || post.wasteType || post.typeOfWaste;
-        const datum = typeof post.date === "string" ? post.date.slice(0, 10) : null;
-        if (!typ || !datum || datum < idag) continue;
-        const befintlig = tidigast.get(typ);
-        if (!befintlig || datum < befintlig.NextWastePickup) {
-          tidigast.set(typ, {
-            WasteType: typ,
-            NextWastePickup: datum,
-            WastePickupFrequency: post.collectionFrequency || "",
-            BinType: { Code: post.containerType || "", ContainerType: "", Size: null, Unit: "" }
-          });
-        }
-      }
-      return JSON.stringify({ RhServices: [...tidigast.values()] });
+      return JSON.stringify({
+        RhServices: (svar.data || [])
+          // Avslutade abonnemang ligger kvar i svaret men ska inte visas.
+          .filter(t => t && t.isActive !== false && t.nextPickup && String(t.nextPickup).slice(0, 10) >= idag)
+          .map(t => ({
+            WasteType: t.description || "",
+            NextWastePickup: String(t.nextPickup).slice(0, 10),
+            WastePickupFrequency: "",
+            BinType: {
+              Code: (t.binType || {}).code || "",
+              ContainerType: (t.binType || {}).container_type || "",
+              Size: (t.binType || {}).size || null,
+              Unit: (t.binType || {}).unit || ""
+            }
+          }))
+      });
     }
   },
 

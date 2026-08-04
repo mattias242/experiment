@@ -127,7 +127,9 @@ const VERIFIED_OTHER = {
   okrab: { kind: "exde", base: "https://minasidor.okrab.se/MinaSidor_API/api/external" },
   vasyd: { kind: "vasyd", base: "https://www.vasyd.se/api/sitecore/mypagesapi" },
   stockholm: { kind: "svoa", base: "https://www.stockholmvattenochavfall.se/villa-och-radhus/avfallstjanster/nar-kommer-sopbilen" },
-  sundsvall: { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" }
+  sundsvall: { kind: "sundsvall", base: "https://api.sundsvall.se/Garbage/2281" },
+  telge: { kind: "thorweb", base: "https://www.telge.se/api/thorweb/garbagecollection" },
+  lumire: { kind: "lumire", base: "https://lumire.se/api/waste-pickup" }
 };
 
 describe("Egenskap: kommuner på andra plattformar finns med rätt sort", () => {

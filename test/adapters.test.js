@@ -34,7 +34,7 @@ describe("Egenskap: söktexten hittas oavsett hur klienten skickar den", () => {
 
 describe("Egenskap: varje kommun vet vilken sorts tjänst den talar med", () => {
   it("Givet kommunlistan, när en kommun slås upp, så har den en känd sort och en bas-URL", () => {
-    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd", "svoa", "sundsvall"]);
+    const kinds = new Set(["edp", "exde", "appbolaget", "nsr", "vasyd", "svoa", "sundsvall", "thorweb", "lumire"]);
     for (const [key, p] of Object.entries(PROVIDERS)) {
       assert.ok(kinds.has(p.kind), key + " har okänd sort: " + p.kind);
       assert.match(p.base, /^https:\/\//, key + " saknar bas-URL");
@@ -427,6 +427,86 @@ describe("Egenskap: Sundsvalls öppna data översätts till appens form", () => 
     ]}]);
     const ut = JSON.parse(adapterFor(sund).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" }));
     assert.equal(ut.RhServices[0].WasteType, "NYTT_SLAG");
+  });
+});
+
+describe("Egenskap: Telge talar samma produkt som EXDE men med annan sökvägsform", () => {
+  const thor = { kind: "thorweb", base: "https://exempel.invalid/api/thorweb/garbagecollection" };
+
+  it("Givet en adressökning, när anropet byggs, så läggs söktexten i sökvägen", () => {
+    const r = adapterFor(thor).request(thor, "SearchAdress", {
+      method: "POST", body: "searchText=Storgatan", contentType: "application/x-www-form-urlencoded"
+    });
+    // Till skillnad från EXDE:s POST med JSON-body är det här en GET med
+    // värdet som ett sökvägssegment.
+    assert.equal(r.url, thor.base + "/autocomplete/Storgatan");
+    assert.equal(r.method, "GET");
+  });
+
+  it("Givet en vald adress, när schemat begärs, så hamnar hela adressen i sökvägen", () => {
+    const r = adapterFor(thor).request(thor, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("STORGATAN 67, JÄRNA")
+    });
+    assert.equal(r.url, thor.base + "/schedule/" + encodeURIComponent("STORGATAN 67, JÄRNA"));
+  });
+
+  it("Givet ett schemasvar, när det normaliseras, så behandlas det precis som EXDE:s", () => {
+    const svar = JSON.stringify([
+      { date: "2026-07-14T00:00:00", typeOfWasteDescription: "Hemsortering", containerType: "K370L1" },
+      { date: "2026-08-11T00:00:00", typeOfWasteDescription: "Hemsortering", containerType: "K370L1" }
+    ]);
+    const ut = JSON.parse(adapterFor(thor).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" }));
+    assert.equal(ut.RhServices[0].WasteType, "Hemsortering");
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-11");
+  });
+
+  it("Givet en adresslista, när den normaliseras, så blir den appens träfflista", () => {
+    const ut = JSON.parse(adapterFor(thor).normalize("SearchAdress", JSON.stringify(["STORGATAN 67, JÄRNA"])));
+    assert.deepEqual(ut.Buildings, ["STORGATAN 67, JÄRNA"]);
+  });
+});
+
+describe("Egenskap: Lumire översätts till appens form", () => {
+  const lum = { kind: "lumire", base: "https://exempel.invalid/api/waste-pickup" };
+
+  it("Givet en adressökning, när anropet byggs, så heter parametern q", () => {
+    const r = adapterFor(lum).request(lum, "SearchAdress", {
+      method: "POST", body: "searchText=Storgatan", contentType: "application/x-www-form-urlencoded"
+    });
+    assert.equal(new URL(r.url).searchParams.get("q"), "Storgatan");
+  });
+
+  it("Givet träffar, när de normaliseras, så bär adressen med sig sitt byggnads-id", () => {
+    const svar = JSON.stringify({ addresses: [
+      { address: "Storgatan 3, Luleå", buildingId: "1117303" }
+    ]});
+    const ut = JSON.parse(adapterFor(lum).normalize("SearchAdress", svar));
+    assert.deepEqual(ut.Buildings, ["Storgatan 3, Luleå (1117303)"]);
+  });
+
+  it("Givet en vald adress, när schemat begärs, så används id:t i sökvägen", () => {
+    const r = adapterFor(lum).request(lum, "GetWastePickupSchedule", {
+      search: "?address=" + encodeURIComponent("Storgatan 3, Luleå (1117303)")
+    });
+    assert.equal(r.url, lum.base + "/1117303");
+  });
+
+  it("Givet tjänster, när de normaliseras, så blir beskrivningen avfallsslaget", () => {
+    const svar = JSON.stringify({ data: [
+      { description: "Plastförpackningar 660 l", nextPickup: "2026-08-14", isActive: true,
+        binType: { code: "K660", container_type: "Kärl", size: "660.00", unit: "L" } }
+    ]});
+    const ut = JSON.parse(adapterFor(lum).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" }));
+    assert.equal(ut.RhServices[0].WasteType, "Plastförpackningar 660 l");
+    assert.equal(ut.RhServices[0].NextWastePickup, "2026-08-14");
+    assert.equal(ut.RhServices[0].BinType.Code, "K660");
+  });
+
+  it("Givet en avslutad tjänst, när den normaliseras, så utelämnas den", () => {
+    const svar = JSON.stringify({ data: [
+      { description: "Gammalt abonnemang", nextPickup: "2026-08-14", isActive: false, binType: {} }
+    ]});
+    assert.deepEqual(JSON.parse(adapterFor(lum).normalize("GetWastePickupSchedule", svar, { today: "2026-08-04" })).RhServices, []);
   });
 });
 
