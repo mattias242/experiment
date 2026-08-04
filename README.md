@@ -8,20 +8,27 @@ den dagen.
 
 ## Stödda kommuner
 
-Appen pratar med EDP FutureWeb-tjänsten "SimpleWastePickup" som används av 17
-kommuner/avfallsbolag. **Alla 17 är verifierade** mot riktiga adresser — adress-
+Appen pratar med EDP FutureWeb-tjänsten "SimpleWastePickup" som används av 32
+kommuner/avfallsbolag. **Alla 32 är verifierade** mot riktiga adresser — adress-
 sökning och schemahämtning gav korrekta datum (2026-08-04):
 
-Stenungsund, Orust, Örebro, Ljungby, Mark, Lycksele, Skellefteå, Borås (BEM),
-Uppsala (Uppsala vatten), SSAM (Växjö, Alvesta, Lessebo, Markaryd, Tingsryd),
-Kretslopp Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö,
-Uppvidinge, Vetlanda), VafabMiljö (Västerås m.fl.), Herrljunga & Vårgårda
-(Remondis), Boden, Kiruna, Lidköping, Nacka (NVOA).
+Ale, Boden, Borås (BEM), Gotland, Herrljunga & Vårgårda (Remondis), Hudiksvall,
+June Avfall & Miljö (Jönköping, Habo, Mullsjö), Kiruna, Kramfors, Kretslopp
+Sydost (Kalmar, Nybro, Oskarshamn, Torsås, Mörbylånga, Sävsjö, Uppvidinge,
+Vetlanda), Kristianstad, Kungälv, Lerum, Lidköping, Ljungby, Ludvika (WBAB),
+Lund, Lycksele, Mark, MERAB (Eslöv, Höör, Hörby), Nacka (NVOA), Orust,
+Partille, Skellefteå, Sollefteå, SSAM (Växjö, Alvesta, Lessebo, Markaryd,
+Tingsryd), Stenungsund, Uppsala (Uppsala vatten), VafabMiljö (Västerås m.fl.),
+VIVAB Falkenberg, VIVAB Varberg, Örebro.
 
-Boden, Kiruna, Lidköping och Nacka gick inte att nå vid det första testet
-2026-08-03 och var då märkta "(otestad)" i väljaren. Vid omtest 2026-08-04
-svarade alla fyra normalt, så det var sannolikt tillfälligt eller berodde på
-testmiljön – inte på deras API.
+De 15 som tillkom 2026-08-04 kommer från en kartläggning av hur svenska
+kommuner exponerar tömningsscheman. Samma anropsmönster gäller för alla, så de
+krävde ingen ny kod – bara en rad var i kommunlistan.
+
+Två saker är värda att veta vid felsökning: flera instanser har ett tomt
+adressregister för centrala adresser (flerbostadshus utan eget abonnemang), och
+gatunamn som "Storgatan" finns inte i alla kommuner. Att ett anrop inte ger
+träff betyder alltså inte att instansen är trasig – prova en villaadress till.
 
 Roslagsvatten fanns tidigare på EDP-plattformen men svarar nu 404 på alla
 kända sökvägar och ingår därför inte.

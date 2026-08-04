@@ -10,11 +10,11 @@ länge för hand mot livesajten.
 
 ```gherkin
 Scenario: Kommunerna listas i bokstavsordning
-  Givet att appen stöder 17 kommuner/avfallsbolag
+  Givet att appen stöder 32 kommuner/avfallsbolag
   När besökaren öppnar kommunväljaren
-  Så listas alla i svensk bokstavsordning (Boden först, Örebro sist)
+  Så listas alla i svensk bokstavsordning (Ale först, Örebro sist)
   Och en instans som inte kunnat verifieras märks "(otestad)" –
-  för närvarande är alla 17 verifierade
+  för närvarande är alla 32 verifierade
 
 Scenario: Senaste valet minns
   Givet att besökaren tidigare valt kommun och adress
