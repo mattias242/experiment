@@ -10,11 +10,18 @@ länge för hand mot livesajten.
 
 ```gherkin
 Scenario: Kommunerna listas i bokstavsordning
-  Givet att appen stöder 32 kommuner/avfallsbolag
+  Givet att appen stöder 34 kommuner/avfallsbolag
   När besökaren öppnar kommunväljaren
   Så listas alla i svensk bokstavsordning (Ale först, Örebro sist)
   Och en instans som inte kunnat verifieras märks "(otestad)" –
-  för närvarande är alla 32 verifierade
+  för närvarande är alla 34 verifierade
+
+Scenario: Kommuner på andra plattformar ser likadana ut för besökaren
+  Givet en kommun som inte kör EDP FutureWeb (LSR, Hässleholm)
+  När besökaren söker adress och hämtar schema
+  Så översätter en adapter i adapters.js anropet till leverantörens API
+  Och svaret normaliseras till EDP:s form innan det når gränssnittet
+  Men direktanropet förbi proxyn erbjuds inte – det svaret vore i fel form
 
 Scenario: Senaste valet minns
   Givet att besökaren tidigare valt kommun och adress

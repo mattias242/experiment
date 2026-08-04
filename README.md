@@ -8,9 +8,19 @@ den dagen.
 
 ## Stödda kommuner
 
-Appen pratar med EDP FutureWeb-tjänsten "SimpleWastePickup" som används av 32
-kommuner/avfallsbolag. **Alla 32 är verifierade** mot riktiga adresser — adress-
-sökning och schemahämtning gav korrekta datum (2026-08-04):
+Appen täcker **34 kommuner/avfallsbolag**, alla verifierade mot riktiga adresser
+— adressökning och schemahämtning gav korrekta datum (2026-08-04).
+
+De flesta talar EDP FutureWeb-tjänsten "SimpleWastePickup". Tre kommuner nås via
+andra plattformar och har var sin adapter i `adapters.js`, som översätter till
+och från EDP:s form så att resten av appen inte behöver veta om skillnaden:
+
+| Kommun | Plattform | Not |
+|---|---|---|
+| Landskrona, Svalöv (LSR) | EXDE Systems (THOR) | Två POST med JSON; hela tömningsserien returneras |
+| Hässleholm | Appbolaget universal | Har EDP men bara bakom inloggning. Kräver ett extra uppslag och UTC-datum måste räknas om till svensk tid |
+
+EDP-instanserna:
 
 Ale, Boden, Borås (BEM), Gotland, Herrljunga & Vårgårda (Remondis), Hudiksvall,
 June Avfall & Miljö (Jönköping, Habo, Mullsjö), Kiruna, Kramfors, Kretslopp
@@ -21,9 +31,9 @@ Partille, Skellefteå, Sollefteå, SSAM (Växjö, Alvesta, Lessebo, Markaryd,
 Tingsryd), Stenungsund, Uppsala (Uppsala vatten), VafabMiljö (Västerås m.fl.),
 VIVAB Falkenberg, VIVAB Varberg, Örebro.
 
-De 15 som tillkom 2026-08-04 kommer från en kartläggning av hur svenska
-kommuner exponerar tömningsscheman. Samma anropsmönster gäller för alla, så de
-krävde ingen ny kod – bara en rad var i kommunlistan.
+De 15 EDP-instanser som tillkom 2026-08-04 kommer från en kartläggning av hur
+svenska kommuner exponerar tömningsscheman. Samma anropsmönster gäller för alla,
+så de krävde ingen ny kod – bara en rad var i kommunlistan.
 
 Två saker är värda att veta vid felsökning: flera instanser har ett tomt
 adressregister för centrala adresser (flerbostadshus utan eget abonnemang), och
