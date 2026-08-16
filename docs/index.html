@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Din ledamot – så röstar riksdagen, förklarat</title>
+<meta name="description" content="Se hur riksdagsledamöterna från din valkrets röstar i frågor du bryr dig om – med begripliga förklaringar av vad varje votering faktiskt gällde. Bygger på riksdagens öppna data.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗳️</text></svg>">
+</head>
+<body>
+<a class="skiplink" href="#innehall">Hoppa till innehållet</a>
+
+<header class="topp">
+  <div class="topp-inner">
+    <a href="#" class="logo" id="hemlank">
+      <span class="logo-mark" aria-hidden="true">🗳️</span>
+      <span class="logo-text">Din ledamot</span>
+    </a>
+    <nav class="topp-nav">
+      <a href="#" id="nav-hem">Hitta din valkrets</a>
+      <a href="#om" id="nav-om">Så funkar det</a>
+    </nav>
+  </div>
+</header>
+
+<div id="demobanner" class="demobanner" hidden>
+  Demoläge – alla namn och röster på den här sidan är påhittade exempeldata.
+</div>
+
+<main id="innehall" class="innehall">
+  <div id="app" aria-live="polite">
+    <noscript>
+      <p class="tomt">Den här tjänsten behöver JavaScript för att hämta data från
+      riksdagens öppna data (data.riksdagen.se).</p>
+    </noscript>
+  </div>
+</main>
+
+<footer class="fot">
+  <p>
+    <strong>Din ledamot</strong> är en ideell tjänst utan koppling till Sveriges riksdag.
+    All data hämtas direkt från
+    <a href="https://data.riksdagen.se" rel="noopener">riksdagens öppna data</a>
+    i din webbläsare – ingenting sparas på någon server.
+  </p>
+  <p>
+    Förklaringarna är automatiskt genererade ur riksdagens dokument och kan vara förenklade.
+    Vill du fördjupa dig? Följ länken till riksdagen.se vid varje omröstning.
+  </p>
+</footer>
+
+<script src="kommuner.js"></script>
+<script src="demo-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
