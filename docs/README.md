@@ -28,7 +28,7 @@ All data hämtas i besökarens webbläsare direkt från
 
 | Data | Endpoint |
 |---|---|
-| Ledamöter | `personlista/?utformat=json&rdlstatus=samtida` |
+| Ledamöter | `personlista/?utformat=json&rdlstatus=tjanstgorande` (med reservfrågor, se nedan) |
 | En ledamots röster | `voteringlista/?iid=…&rm=…&sz=10000&utformat=json` |
 | Betänkandetitlar | `dokumentlista/?doktyp=bet&rm=…&sz=500&utformat=json` |
 | Hela voteringen (349 röster) | `votering/{votering_id}/json` |
@@ -37,6 +37,38 @@ All data hämtas i besökarens webbläsare direkt från
 Svaren parsas defensivt (API:et returnerar objekt i stället för listor vid
 enstaka träffar, fältnamn varierar) och cachas i `localStorage` med rimliga
 TTL:er så att API:et inte belastas i onödan.
+
+### Vilka räknas som ledamöter?
+
+Att fråga API:et med `rdlstatus=samtida` ger *vår tids* ledamöter – alltså även
+avgångna. Appen förlitar sig därför inte på ett enskilt statusvärde, utan
+avgör saken utifrån ledamöternas faktiska **kammaruppdrag**: den som har ett
+uppdrag som pågår i dag (inget slutdatum, eller ett slutdatum som inte
+passerats) sitter i riksdagen. Logiken ligger i `ledamotsfilter.js`, som delas
+mellan webbläsaren och Node och täcks av `test/ledamotsfilter.test.js`.
+
+Appen provar frågorna `tjanstgorande` → `tjanst` → `samtliga` → ofiltrerat och
+använder den första som ger ett rimligt antal (riksdagen har 349 mandat), så
+den fungerar även om ett parameternamn ändras.
+
+### Kontrollera mot skarpa data
+
+```bash
+node verify-ledamoter.mjs                     # hela kontrollen
+node verify-ledamoter.mjs "Sofia Westergren"  # granska en enskild person
+```
+
+Den fullständiga kontrollen kör igenom samma frågor mot riksdagens API, visar
+hur många tjänstgörande ledamöter var och en ger, listar antalet per valkrets
+och parti och kontrollerar att kända *tidigare* ledamöter inte längre visas.
+Avslutar med felkod om något ser orimligt ut.
+
+Persongranskningen hämtar den bredaste listan och skriver ut personens
+kammaruppdrag med datum, statustexten och vad filtret svarar – användbart när
+någon oväntat dyker upp eller försvinner.
+
+Båda lägena kräver en maskin som når `data.riksdagen.se`. Vid utveckling kan
+`RIKSDAG_API` peka mot en mockserver.
 
 ## Köra lokalt
 
@@ -58,9 +90,10 @@ kan nås. En gul banner visar att demoläget är aktivt.
 
 - Kommun→valkrets-tabellen i `kommuner.js` är kurerad för hand.
 - Fältnamnen i riksdagens API är verifierade mot dokumentationen men inte mot
-  livesvar från just denna miljö (utgående trafik till `data.riksdagen.se` är
-  blockerad här). Parsern är skriven defensivt, men första körningen mot
-  riktiga API:t bör röktestas – se `TESTING.md`-avsnittet nedan.
+  livesvar från utvecklingsmiljön (utgående trafik till `data.riksdagen.se` är
+  blockerad där). Parsern är skriven defensivt och ledamotsfiltret är
+  enhetstestat, men kör `node verify-ledamoter.mjs` för att bekräfta mot
+  skarpa data.
 - Voteringar utan betänkande i dokumentlistan visas som "Betänkande XX0".
 - Statistiken "röstade med/emot sitt parti" beräknas per votering när den
   fälls ut, inte aggregerat (skulle kräva hundratals API-anrop).

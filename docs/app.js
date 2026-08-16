@@ -134,25 +134,43 @@ async function hamtaJson(url) {
 
 const TIMME = 3600e3, DYGN = 24 * TIMME;
 
+// Riksdagens personlista kan frågas på flera sätt och vi vill inte hänga upp
+// oss på ett enda statusvärde: "samtida" betyder t.ex. vår tids ledamöter –
+// inklusive avgångna. Vi provar de snävaste frågorna först och låter
+// Ledamotsfilter avgöra vem som faktiskt sitter i riksdagen i dag, utifrån
+// ledamöternas kammaruppdrag. Ger en fråga ett orimligt antal går vi vidare.
+const PERSONLISTOR = [
+  '/personlista/?utformat=json&rdlstatus=tjanstgorande',
+  '/personlista/?utformat=json&rdlstatus=tjanst',
+  '/personlista/?utformat=json&rdlstatus=samtliga',
+  '/personlista/?utformat=json',
+];
+
 async function hamtaLedamoter() {
   if (DEMO) return DEMO_DATA.personer;
   const nyckel = 'ledamoter';
   const cachad = cacheLas(nyckel, DYGN);
   if (cachad) return cachad;
-  const json = await hamtaJson(`${API}/personlista/?utformat=json&rdlstatus=samtida`);
-  const personer = somLista(json?.personlista?.person)
-    .map((p) => ({
-      id: p.intressent_id,
-      fornamn: p.tilltalsnamn || p.fornamn || '',
-      efternamn: p.efternamn || '',
-      parti: String(p.parti || '').toUpperCase(),
-      valkrets: p.valkrets || '',
-      bild: p.bild_url_192 || p.bild_url_80 || p.bild_url_max || '',
-      status: p.status || '',
-    }))
-    .filter((p) => p.id && !/ledig|avliden/i.test(p.status));
-  cacheSkriv(nyckel, personer);
-  return personer;
+
+  let bastaTraff = null, sistaFel = null;
+  for (const stig of PERSONLISTOR) {
+    try {
+      const json = await hamtaJson(API + stig);
+      const personer = Ledamotsfilter.tjanstgorandeLedamoter(json);
+      if (Ledamotsfilter.rimligtAntal(personer.length)) {
+        cacheSkriv(nyckel, personer);
+        return personer;
+      }
+      // Spara ändå det bästa vi sett, om ingen fråga ger ett rimligt antal.
+      if (!bastaTraff || personer.length > bastaTraff.length) bastaTraff = personer;
+      console.warn(`${stig} gav ${personer.length} tjänstgörande ledamöter ` +
+        `(förväntat ~${Ledamotsfilter.MANDAT}) – provar nästa fråga.`);
+    } catch (fel) {
+      sistaFel = fel;
+    }
+  }
+  if (bastaTraff && bastaTraff.length) return bastaTraff;
+  throw sistaFel || new Error('Kunde inte hämta listan över riksdagsledamöter.');
 }
 
 async function hamtaRoster(iid, rm) {
