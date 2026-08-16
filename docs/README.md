@@ -80,6 +80,27 @@ python3 -m http.server 8080
 
 Eller deploya mappen rakt av till GitHub Pages/Netlify/valfri statisk host.
 
+### Diagnosläge
+
+`?diagnos=1` visar vad riksdagens API svarade och vad filtret gjorde med
+svaret: antal tjänstgörande jämfört med de 349 mandaten, vilken fråga som
+valdes, om uppdragsdata följde med i svaret, och statustexten för varje
+ledamot i valkretsen. Använd det när någon oväntat dyker upp eller försvinner:
+
+```
+https://…/?diagnos=1#valkrets/Västra%20Götalands%20läns%20västra
+```
+
+Ser antalet orimligt ut visas dessutom en varning i den vanliga vyn, i stället
+för att en felaktig lista presenteras som om den vore korrekt.
+
+### Cacheversion
+
+Ledamotslistan cachas ett dygn i `localStorage`. Nycklarna är versionsmärkta
+(`dl2:`) och äldre versioner rensas vid sidladdning – annars skulle
+återvändande besökare få gammal, felaktig data kvar efter en rättning. **Höj
+`CACHE_VERSION` i `app.js` när en ändring gör tidigare cachad data felaktig.**
+
 ### Demoläge
 
 `http://localhost:8080/?demo=1` kör med påhittade exempeldata (fiktiva namn,
