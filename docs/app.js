@@ -5,7 +5,12 @@
 
 const API = 'https://data.riksdagen.se';
 const DEMO = new URLSearchParams(location.search).has('demo');
+const DIAGNOS = new URLSearchParams(location.search).has('diagnos');
 const DEMOSUFFIX = DEMO ? '?demo=1' : '';
+
+// Fylls i när ledamotslistan hämtas, så att ?diagnos=1 kan visa vad API:et
+// faktiskt svarade och varför filtret gjorde som det gjorde.
+const diagnostik = { forsok: [], vald: null, orimligt: null };
 
 // Utskottskod (prefixet i beteckningen, t.ex. "AU" i "AU4") → begripligt ämne.
 const UTSKOTT = {
@@ -105,12 +110,27 @@ function datumText(iso) {
 
 // ------------------------------------------------------------- datalager
 
+// Höj versionen när cachad data kan vara felaktig – gamla nycklar blir då
+// oanvändbara i stället för att ligga kvar hos återvändande besökare.
+// dl2: ledamotslistan filtrerades tidigare på ett sätt som släppte igenom
+// avgångna ledamöter.
+const CACHE_VERSION = 'dl2:';
+
 const minne = new Map();
+
+// Rensa bort data från tidigare cacheversioner.
+try {
+  for (const nyckel of Object.keys(localStorage)) {
+    if (/^dl\d+:/.test(nyckel) && !nyckel.startsWith(CACHE_VERSION)) {
+      localStorage.removeItem(nyckel);
+    }
+  }
+} catch { /* lagring avstängd – strunt i det */ }
 
 function cacheLas(nyckel, maxAlderMs) {
   if (minne.has(nyckel)) return minne.get(nyckel);
   try {
-    const rad = localStorage.getItem('dl1:' + nyckel);
+    const rad = localStorage.getItem(CACHE_VERSION + nyckel);
     if (!rad) return null;
     const { t, v } = JSON.parse(rad);
     if (Date.now() - t > maxAlderMs) return null;
@@ -122,7 +142,7 @@ function cacheLas(nyckel, maxAlderMs) {
 function cacheSkriv(nyckel, varde) {
   minne.set(nyckel, varde);
   try {
-    localStorage.setItem('dl1:' + nyckel, JSON.stringify({ t: Date.now(), v: varde }));
+    localStorage.setItem(CACHE_VERSION + nyckel, JSON.stringify({ t: Date.now(), v: varde }));
   } catch { /* full eller avstängd lagring – strunt i det */ }
 }
 
@@ -153,23 +173,44 @@ async function hamtaLedamoter() {
   if (cachad) return cachad;
 
   let bastaTraff = null, sistaFel = null;
+  diagnostik.forsok = [];
   for (const stig of PERSONLISTOR) {
     try {
       const json = await hamtaJson(API + stig);
+      const ipersonlistan = Ledamotsfilter.somLista(json?.personlista?.person);
       const personer = Ledamotsfilter.tjanstgorandeLedamoter(json);
+      diagnostik.forsok.push({
+        stig,
+        isvaret: ipersonlistan.length,
+        tjanstgorande: personer.length,
+        harUppdragsdata: ipersonlistan.some((p) =>
+          Ledamotsfilter.somLista(p?.personuppdrag?.uppdrag).length > 0),
+      });
       if (Ledamotsfilter.rimligtAntal(personer.length)) {
+        diagnostik.vald = stig;
         cacheSkriv(nyckel, personer);
         return personer;
       }
-      // Spara ändå det bästa vi sett, om ingen fråga ger ett rimligt antal.
-      if (!bastaTraff || personer.length > bastaTraff.length) bastaTraff = personer;
+      // Ingen fråga har gett ett rimligt antal än. Behåll den som ligger
+      // närmast riksdagens 349 mandat – inte den största, för en för lång
+      // lista är just symtomet på att avgångna följt med.
+      const avstand = Math.abs(personer.length - Ledamotsfilter.MANDAT);
+      if (personer.length && (!bastaTraff || avstand < bastaTraff.avstand)) {
+        bastaTraff = { personer, stig, avstand };
+      }
       console.warn(`${stig} gav ${personer.length} tjänstgörande ledamöter ` +
         `(förväntat ~${Ledamotsfilter.MANDAT}) – provar nästa fråga.`);
     } catch (fel) {
       sistaFel = fel;
+      diagnostik.forsok.push({ stig, fel: fel.message });
     }
   }
-  if (bastaTraff && bastaTraff.length) return bastaTraff;
+  if (bastaTraff) {
+    // Visa datan, men dölj inte att den ser fel ut.
+    diagnostik.vald = bastaTraff.stig;
+    diagnostik.orimligt = bastaTraff.personer.length;
+    return bastaTraff.personer;
+  }
   throw sistaFel || new Error('Kunde inte hämta listan över riksdagsledamöter.');
 }
 
@@ -428,6 +469,7 @@ async function vyValkrets(valkrets) {
   } catch (fel) {
     return visaFel(fel, () => vyValkrets(valkrets));
   }
+  if (DIAGNOS) return vyDiagnos(personer, valkrets);
   const egna = personer
     .filter((p) => p.valkrets === valkrets)
     .sort((a, b) => PARTIORDNING.indexOf(a.parti) - PARTIORDNING.indexOf(b.parti) ||
@@ -435,6 +477,11 @@ async function vyValkrets(valkrets) {
 
   $app.innerHTML = `
     <nav class="smula"><a href="#">Start</a> › ${esc(valkrets)}</nav>
+    ${diagnostik.orimligt ? `<div class="fel" style="text-align:left">
+      <p><strong>Obs: listan kan innehålla personer som inte längre sitter i riksdagen.</strong></p>
+      <p>Riksdagens API gav ${diagnostik.orimligt} tjänstgörande ledamöter i stället för
+      ${Ledamotsfilter.MANDAT}. <a href="?diagnos=1${esc(location.hash)}">Visa diagnos</a></p>
+    </div>` : ''}
     <div class="vy-rubrik">
       <h1>${esc(valkrets)}</h1>
       <p class="under">${egna.length ? `${egna.length} ledamöter representerar din valkrets i riksdagen just nu.
@@ -451,6 +498,64 @@ async function vyValkrets(valkrets) {
           </span>
         </a>`).join('')}
     </div>`;
+}
+
+// ----------------------------------------------------------------- diagnos
+
+// Visar vad riksdagens API svarade och vad filtret gjorde med svaret. Finns
+// för att kunna felsöka utifrån, utan tillgång till API:et.
+function vyDiagnos(personer, valkrets) {
+  satteTitel('Diagnos');
+  const egna = personer.filter((p) => p.valkrets === valkrets);
+  const antalPerValkrets = new Map();
+  for (const p of personer) {
+    antalPerValkrets.set(p.valkrets, (antalPerValkrets.get(p.valkrets) || 0) + 1);
+  }
+
+  $app.innerHTML = `
+    <nav class="smula"><a href="#">Start</a> › Diagnos</nav>
+    <div class="vy-rubrik">
+      <h1>Diagnos</h1>
+      <p class="under">Vad riksdagens API svarade och vad filtret gjorde med svaret.</p>
+    </div>
+
+    <div class="profil" style="display:block">
+      <p><strong>${personer.length}</strong> personer räknas som tjänstgörande ledamöter.
+      Riksdagen har ${Ledamotsfilter.MANDAT} mandat.
+      ${Ledamotsfilter.rimligtAntal(personer.length)
+        ? '<span style="color:var(--ja)">✓ rimligt</span>'
+        : '<span style="color:var(--nej)">✗ orimligt – avgångna följer troligen med</span>'}</p>
+      <p>Vald fråga: <code>${esc(diagnostik.vald || '–')}</code></p>
+      <p>Valkretsar i datan: ${antalPerValkrets.size} (förväntat 29)</p>
+    </div>
+
+    <h2 style="font-size:1.1rem;margin-top:1.5rem">Frågor som provades</h2>
+    <div class="voteringar">
+      ${diagnostik.forsok.map((f) => `
+        <article class="votering"><div style="padding:.8rem 1rem">
+          <div style="font-family:monospace;font-size:.82rem">${esc(f.stig)}</div>
+          <div class="votering-meta">${f.fel
+            ? `<span style="color:var(--nej)">fel: ${esc(f.fel)}</span>`
+            : `${f.isvaret} personer i svaret →
+               <strong>${f.tjanstgorande}</strong> tjänstgörande ·
+               uppdragsdata i svaret: ${f.harUppdragsdata ? 'ja' : 'NEJ (filtret använde statustexten)'}`}
+          </div>
+        </div></article>`).join('')}
+    </div>
+
+    <h2 style="font-size:1.1rem;margin-top:1.5rem">${esc(valkrets)}: ${egna.length} ledamöter</h2>
+    <div class="voteringar">
+      ${egna.map((p) => `
+        <article class="votering"><div style="padding:.6rem 1rem">
+          <strong>${esc(p.fornamn)} ${esc(p.efternamn)}</strong> (${esc(p.parti || '–')})
+          <div class="votering-meta">status i API:t:
+            <code>${esc(p.status || '(blank)')}</code></div>
+        </div></article>`).join('')}
+    </div>
+
+    <p class="detalj-lankar">Ser du någon här som inte sitter i riksdagen?
+    Statusraden ovan visar vad API:et påstår om personen – den uppgiften
+    behövs för att rätta filtret.</p>`;
 }
 
 // -------------------------------------------------------------- ledamotsvy

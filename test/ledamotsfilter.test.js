@@ -127,6 +127,12 @@ describe("Egenskap: statustexten används bara när uppdragen saknas", () => {
     assert.equal(arTjanstgorande(utanUppdrag(""), IDAG), false);
   });
 
+  it("Givet enbart texten 'Riksdagsledamot', när listan filtreras, så utesluts hen", () => {
+    // Texten säger inget om att uppdraget pågår och bärs även av avgångna.
+    // Utan uppdragsdata är det säkrare att utelämna än att gissa.
+    assert.equal(arTjanstgorande(utanUppdrag("Riksdagsledamot"), IDAG), false);
+  });
+
   it("Givet uppdragsdata som säger nej men en status som säger ja, när listan filtreras, så vinner uppdraget", () => {
     const p = medUppdrag("7", "2014-09-29", "2018-09-24", { status: "Tjänstgörande riksdagsledamot" });
     assert.equal(arTjanstgorande(p, IDAG), false);

@@ -47,13 +47,15 @@
     const uppdrag = kammaruppdrag(person);
     if (uppdrag.length) return uppdrag.some((u) => uppdragPagar(u, dag));
 
-    // Fallback när uppdragen inte följde med i svaret. "Tjänstgörande
-    // riksdagsledamot", "Ledig", "Ersättare för …" sitter alla i riksdagen nu;
-    // en avgången ledamot har blank status eller "Avgången".
+    // Fallback när uppdragen inte följde med i svaret. Här krävs ett uttryckligt
+    // tecken på att personen sitter nu – enbart "Riksdagsledamot" duger inte,
+    // eftersom den texten lika gärna kan beskriva någon som avgått. Hellre
+    // utesluta en sittande ledamot (som då syns saknas) än visa en avgången
+    // som om hen fortfarande företrädde valkretsen.
     const status = String(person.status || '');
     if (!status) return false;
-    if (/avgången|avliden|tidigare\s+riksdagsledamot/i.test(status)) return false;
-    return /riksdagsledamot|ersättare|ledig|tjänstgörande/i.test(status);
+    if (/avgången|avliden|tidigare/i.test(status)) return false;
+    return /tjänstgörande|ersättare|ledig|sjukskriven/i.test(status);
   }
 
   /** Plockar ut de tjänstgörande och normaliserar fälten appen behöver. */
