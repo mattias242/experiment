@@ -54,13 +54,21 @@ den fungerar även om ett parameternamn ändras.
 ### Kontrollera mot skarpa data
 
 ```bash
-node verify-ledamoter.mjs
+node verify-ledamoter.mjs                     # hela kontrollen
+node verify-ledamoter.mjs "Sofia Westergren"  # granska en enskild person
 ```
 
-Kör igenom samma frågor mot riksdagens API, visar hur många tjänstgörande
-ledamöter var och en ger och listar antalet per valkrets och parti. Avslutar
-med felkod om något ser orimligt ut. Kräver en maskin som når
-`data.riksdagen.se`.
+Den fullständiga kontrollen kör igenom samma frågor mot riksdagens API, visar
+hur många tjänstgörande ledamöter var och en ger, listar antalet per valkrets
+och parti och kontrollerar att kända *tidigare* ledamöter inte längre visas.
+Avslutar med felkod om något ser orimligt ut.
+
+Persongranskningen hämtar den bredaste listan och skriver ut personens
+kammaruppdrag med datum, statustexten och vad filtret svarar – användbart när
+någon oväntat dyker upp eller försvinner.
+
+Båda lägena kräver en maskin som når `data.riksdagen.se`. Vid utveckling kan
+`RIKSDAG_API` peka mot en mockserver.
 
 ## Köra lokalt
 

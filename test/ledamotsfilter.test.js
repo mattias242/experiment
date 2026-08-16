@@ -51,6 +51,61 @@ describe("Egenskap: bara de som sitter i riksdagen nu visas", () => {
   });
 });
 
+// Sofia Westergren (M) satt för Västra Götalands läns västra 2018–2022 men
+// inte i nuvarande riksdag. Hon dök upp i valkretslistan med den gamla frågan
+// (rdlstatus=samtida) och är därför regressionsfallet för det här filtret.
+// Hennes utskottsuppdrag är med i fixturen: de löper delvis utan slutdatum i
+// datan och får inte råka tolkas som att hon sitter kvar i kammaren.
+describe("Egenskap: Sofia Westergren, ledamot 2018–2022, visas inte i dagens riksdag", () => {
+  const westergren = {
+    intressent_id: "sofia-westergren",
+    tilltalsnamn: "Sofia",
+    efternamn: "Westergren",
+    parti: "M",
+    valkrets: "Västra Götalands läns västra",
+    status: "",
+    personuppdrag: {
+      uppdrag: [
+        { organ_kod: "kam", roll_kod: "Riksdagsledamot", from: "2018-09-24", tom: "2022-09-26" },
+        { organ_kod: "TU", roll_kod: "Suppleant", from: "2018-10-02", tom: "2019-09-24" },
+        { organ_kod: "SkU", roll_kod: "Suppleant", from: "2018-10-02", tom: "" },
+        { organ_kod: "FiU", roll_kod: "Suppleant", from: "2019-09-24", tom: "" }
+      ]
+    }
+  };
+
+  it("Givet hennes avslutade kammaruppdrag, när filtret körs, så räknas hon inte som tjänstgörande", () => {
+    assert.equal(arTjanstgorande(westergren, IDAG), false);
+  });
+
+  it("Givet utskottsuppdrag utan slutdatum, när filtret körs, så håller de henne inte kvar", () => {
+    // Utan skyddet mot att utskottsuppdrag räknas som kammaruppdrag skulle
+    // SkU- och FiU-raderna ovan se ut som pågående uppdrag.
+    const baraUtskott = { ...westergren, personuppdrag: {
+      uppdrag: westergren.personuppdrag.uppdrag.filter((u) => u.organ_kod !== "kam")
+    } };
+    assert.equal(arTjanstgorande(baraUtskott, IDAG), false);
+  });
+
+  it("Givet hennes valkrets, när ledamotslistan byggs, så saknas hon bland de sittande", () => {
+    const sittande = {
+      intressent_id: "sittande-nu", tilltalsnamn: "Nuvarande", efternamn: "Ledamot",
+      parti: "M", valkrets: "Västra Götalands läns västra",
+      personuppdrag: { uppdrag: [
+        { organ_kod: "kam", roll_kod: "Riksdagsledamot", from: "2022-09-26", tom: "2026-09-21" }
+      ] }
+    };
+    const lista = tjanstgorandeLedamoter(
+      { personlista: { person: [westergren, sittande] } }, IDAG);
+    assert.deepEqual(lista.map((l) => l.efternamn), ["Ledamot"]);
+  });
+
+  it("Givet samma person under förra mandatperioden, när filtret körs då, så räknades hon som tjänstgörande", () => {
+    // Filtret ska svara på frågan "sitter hen nu", inte "har hen någonsin suttit".
+    assert.equal(arTjanstgorande(westergren, "2020-05-01"), true);
+  });
+});
+
 describe("Egenskap: statustexten används bara när uppdragen saknas", () => {
   const utanUppdrag = (status) => ({
     intressent_id: "x", tilltalsnamn: "A", efternamn: "B", parti: "M", status
