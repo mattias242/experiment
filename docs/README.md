@@ -41,7 +41,7 @@ TTL:er så att API:et inte belastas i onödan.
 ## Köra lokalt
 
 ```bash
-cd din-ledamot
+cd docs
 python3 -m http.server 8080
 # öppna http://localhost:8080
 ```
