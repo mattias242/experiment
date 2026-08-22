@@ -6,9 +6,11 @@ som i sin tur kan krocka. Vid tillräcklig täthet går det över i en kedjereak
 
 ## Kör
 
-Öppna `kessler/index.html` direkt i en webbläsare – inga beroenden, ingen
-byggkedja, allt ligger i en fil. (Eller servera mappen statiskt, t.ex.
-`npx serve kessler`.)
+Publicerad på GitHub Pages: <https://mattias242.github.io/experiment/kessler/>
+
+Lokalt går den lika bra: öppna `docs/kessler/index.html` direkt i en webbläsare
+– inga beroenden, ingen byggkedja, allt ligger i en fil. (Eller servera mappen
+statiskt, t.ex. `npx serve docs/kessler`.)
 
 ## Så fungerar simuleringen
 
