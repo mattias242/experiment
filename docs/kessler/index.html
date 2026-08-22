@@ -87,7 +87,7 @@
 
   <aside id="panel">
     <h1>Kesslereffekten</h1>
-    <p class="sub">Varje krock slår loss nya fragment. Tillräckligt många objekt&nbsp;→ kedjereaktion.</p>
+    <p class="sub">Börjar med tv&aring; objekt. Varje h&aring;rd krock sl&aring;r loss splitter&nbsp;&mdash; d&auml;rifr&aring;n v&auml;xer kaskaden av sig sj&auml;lv.</p>
 
     <div class="stats">
       <div class="stat"><b id="s-objects">0</b><span>Objekt</span></div>
@@ -202,13 +202,36 @@ function spawnBall(r, gen = 0, speed = 130) {
   return false;
 }
 
-function reset(n = 34) {
+// Simuleringen börjar med två objekt. De skickas mot varandra så att den
+// första krocken garanterat blir hård nog att slå loss splitter – allt som
+// händer därefter är kaskadens eget verk, inte något vi har sått.
+function reset() {
   world.balls.length = 0;
   world.collisions = 0;
   world.time = 0;
   history.length = 0;
   rateWindow.length = 0;
-  for (let i = 0; i < n; i++) spawnBall(7 + Math.random() * 9, 0);
+  lastCollisions = 0;
+  sampleAcc = 0;
+
+  const axis = Math.random() * TAU;
+  const nx = Math.cos(axis), ny = Math.sin(axis);
+  const px = -ny, py = nx;
+  const d = world.R * 0.72;
+  // Objekten är stora med flit: all massa i systemet kommer härifrån, och
+  // eftersom krockar bara finfördelar den sätter startmassan taket för hur
+  // många fragment kaskaden kan nå. Två små bollar plana ut på ett tiotal.
+  const r = Math.max(12, world.R * 0.145);
+  const speed = 230;
+  // Sidoförskjutning åt var sitt håll ger en snedträff; en helt central krock
+  // kastar bara ut objekten längs samma linje igen.
+  const off = r * 0.55;
+  world.balls.push(
+    makeBall(world.cx - nx * d + px * off, world.cy - ny * d + py * off,
+             nx * speed, ny * speed, r, 0),
+    makeBall(world.cx + nx * d - px * off, world.cy + ny * d - py * off,
+             -nx * speed, -ny * speed, r, 0)
+  );
 }
 
 // Ett snabbt projektil utifrån – "antisatellitrobot" som startar kaskaden.

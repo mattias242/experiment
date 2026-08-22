@@ -14,6 +14,9 @@ statiskt, t.ex. `npx serve docs/kessler`.)
 
 ## Så fungerar simuleringen
 
+Den startar med **två objekt** som skickas mot varandra. Allt annat du ser är
+kaskadens eget verk – ingenting sås in i efterhand.
+
 * **Bana** – cirkulär vägg, studs längs normalen med valbar studskoefficient.
 * **Krockar** – impulsbaserad lösning med massa ∝ area, plus positionskorrigering
   så objekt inte fastnar i varandra. Bredfas via rutnät, så några hundra objekt
@@ -24,6 +27,12 @@ statiskt, t.ex. `npx serve docs/kessler`.)
   plus en slumpad utkastfart – det är den enda energi som tillförs, och därmed
   det som avgör om kaskaden växer eller ebbar ut.
 * **Tak** – under `Objekttak` stannar fragmenteringen; krockarna fortsätter.
+* **Massan sätter det verkliga taket.** Eftersom krockar bara finfördelar
+  materia kan aldrig fler fragment uppstå än startmassan räcker till: två
+  objekt med radie *r* rymmer som mest 2·*r*²/*minsta radie*² fragment. Därför
+  är öppningsobjekten stora och skalar med ringen – två små bollar planar ut på
+  ett tiotal fragment hur man än vrider på reglagen, medan de nuvarande når
+  några hundra på under en minut.
 
 ## Reglage
 
