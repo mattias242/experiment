@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kesslereffekten – studsande bollar</title>
+<style>
+  :root {
+    --bg: #05070f;
+    --panel: #0d1220;
+    --line: #1e2740;
+    --ink: #e8edf7;
+    --dim: #8895b0;
+    --accent: #4cc9f0;
+    --warn: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #app { display: flex; height: 100%; }
+  #stage { position: relative; flex: 1 1 auto; min-width: 0; }
+  canvas#view { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+
+  #panel {
+    flex: 0 0 288px;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    padding: 16px;
+    overflow-y: auto;
+  }
+  h1 { font-size: 16px; margin: 0 0 2px; letter-spacing: .2px; }
+  .sub { color: var(--dim); font-size: 12px; margin: 0 0 14px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .stat { background: #121a2c; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+  .stat b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .stat span { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+
+  #graph { width: 100%; height: 54px; display: block; background: #121a2c;
+           border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; }
+
+  .row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  button {
+    flex: 1 1 auto; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    background: #17203a; color: var(--ink); border: 1px solid var(--line);
+    font: inherit; font-size: 13px;
+  }
+  button:hover { background: #1f2b4c; }
+  button.primary { background: #12384a; border-color: #1d6b8c; }
+  button.danger { background: #3a1620; border-color: #6b2233; color: #ffc9c9; }
+
+  label.field { display: block; margin: 12px 0 0; font-size: 12px; color: var(--dim); }
+  label.field .val { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; margin: 5px 0 0; accent-color: var(--accent); }
+  label.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--ink); }
+
+  .legend { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; color: var(--dim); }
+  .legend .swatches { display: flex; gap: 4px; margin: 6px 0; }
+  .legend i { flex: 1; height: 8px; border-radius: 4px; }
+  kbd { background: #17203a; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 11px; }
+
+  #hint {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    background: rgba(13,18,32,.82); border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 14px; font-size: 12px; color: var(--dim); pointer-events: none;
+    transition: opacity .4s; white-space: nowrap;
+  }
+
+  @media (max-width: 760px) {
+    #app { flex-direction: column; }
+    #stage { flex: 1 1 55%; }
+    #panel { flex: 0 0 45%; border-left: none; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="hint">Dra i cirkeln för att skjuta in ett nytt objekt</div>
+  </div>
+
+  <aside id="panel">
+    <h1>Kesslereffekten</h1>
+    <p class="sub">Varje krock slår loss nya fragment. Tillräckligt många objekt&nbsp;→ kedjereaktion.</p>
+
+    <div class="stats">
+      <div class="stat"><b id="s-objects">0</b><span>Objekt</span></div>
+      <div class="stat"><b id="s-rate">0</b><span>Krockar/s</span></div>
+      <div class="stat"><b id="s-total">0</b><span>Krockar totalt</span></div>
+      <div class="stat"><b id="s-state">Stabil</b><span>Kaskad</span></div>
+    </div>
+
+    <canvas id="graph"></canvas>
+
+    <div class="row">
+      <button id="btn-play" class="primary">Pausa</button>
+      <button id="btn-reset">Nollställ</button>
+    </div>
+    <div class="row">
+      <button id="btn-add">+10 objekt</button>
+      <button id="btn-strike" class="danger">Utlös kaskad</button>
+    </div>
+
+    <label class="field">Fragmentgräns (krockfart)<span class="val" id="v-threshold"></span>
+      <input type="range" id="r-threshold" min="0" max="400" step="5"></label>
+    <label class="field">Fragmentutbyte<span class="val" id="v-yield"></span>
+      <input type="range" id="r-yield" min="0" max="35" step="1"></label>
+    <label class="field">Splitterfart<span class="val" id="v-eject"></span>
+      <input type="range" id="r-eject" min="0" max="200" step="5"></label>
+    <label class="field">Studs<span class="val" id="v-rest"></span>
+      <input type="range" id="r-rest" min="50" max="100" step="1"></label>
+    <label class="field">Dragning mot centrum<span class="val" id="v-grav"></span>
+      <input type="range" id="r-grav" min="0" max="100" step="1"></label>
+    <label class="field">Objekttak<span class="val" id="v-max"></span>
+      <input type="range" id="r-max" min="50" max="1500" step="50"></label>
+
+    <label class="check"><input type="checkbox" id="c-trails" checked> Spår efter objekten</label>
+    <label class="check"><input type="checkbox" id="c-slow"> Slow motion</label>
+
+    <div class="legend">
+      <div>Färg = fragmentgeneration</div>
+      <div class="swatches" id="swatches"></div>
+      <div>Blått = ursprungliga satelliter, rött = finfördelat skrot.</div>
+      <div style="margin-top:8px"><kbd>Mellanslag</kbd> pausa · <kbd>R</kbd> nollställ · <kbd>A</kbd> lägg till</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// Kesslereffekten: objekt i en cirkulär bana krockar, varje krock slår loss
+// splitter som i sin tur kan krocka. Mass (area) tas från de två objekt som
+// krockar, så materia försvinner inte – den finfördelas. Kaskaden drivs av
+// splitterfarten, som är den enda energi som tillförs systemet.
+// ---------------------------------------------------------------------------
+
+const TAU = Math.PI * 2;
+const FIXED_DT = 1 / 120;      // fast fysiksteg → samma beteende oavsett skärm
+const MAX_STEPS = 5;           // fångar upp hack utan att spirala ur kontroll
+const MIN_R = 2.2;             // minsta objekt; mindre än så blir inte splitter
+const MAX_SPEED = 900;         // px/s, hindrar numeriska rymningar
+const GEN_HUES = [200, 178, 150, 96, 54, 32, 14, 0];
+
+const world = {
+  cx: 0, cy: 0, R: 0,
+  balls: [],
+  restitution: 0.92,
+  gravity: 0,            // px/s² mot centrum
+  fragThreshold: 110,    // krockfart (px/s) som krävs för att slå loss splitter
+  fragYield: 0.13,       // andel av parens area som blir splitter
+  ejectSpeed: 55,        // extra fart splittret får – kaskadens energikälla
+  maxBalls: 600,
+  running: true,
+  slow: false,
+  trails: true,
+  collisions: 0,
+  time: 0
+};
+
+// --- Objekt ----------------------------------------------------------------
+
+function makeBall(x, y, vx, vy, r, gen) {
+  return { x, y, vx, vy, r, m: r * r, gen, flash: 0 };
+}
+
+function setRadius(b, r) { b.r = r; b.m = r * r; }
+
+function clampSpeed(b) {
+  const s2 = b.vx * b.vx + b.vy * b.vy;
+  if (s2 > MAX_SPEED * MAX_SPEED) {
+    const k = MAX_SPEED / Math.sqrt(s2);
+    b.vx *= k; b.vy *= k;
+  }
+}
+
+// Slumpar in ett objekt som inte redan ligger i något annat.
+function spawnBall(r, gen = 0, speed = 130) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const a = Math.random() * TAU;
+    const d = Math.sqrt(Math.random()) * (world.R - r - 2);
+    const x = world.cx + Math.cos(a) * d;
+    const y = world.cy + Math.sin(a) * d;
+    let free = true;
+    for (const o of world.balls) {
+      const dx = o.x - x, dy = o.y - y, rr = o.r + r;
+      if (dx * dx + dy * dy < rr * rr) { free = false; break; }
+    }
+    if (!free) continue;
+    const va = Math.random() * TAU;
+    const v = speed * (0.5 + Math.random());
+    world.balls.push(makeBall(x, y, Math.cos(va) * v, Math.sin(va) * v, r, gen));
+    return true;
+  }
+  return false;
+}
+
+function reset(n = 34) {
+  world.balls.length = 0;
+  world.collisions = 0;
+  world.time = 0;
+  history.length = 0;
+  rateWindow.length = 0;
+  for (let i = 0; i < n; i++) spawnBall(7 + Math.random() * 9, 0);
+}
+
+// Ett snabbt projektil utifrån – "antisatellitrobot" som startar kaskaden.
+function strike() {
+  const a = Math.random() * TAU;
+  const r = 9;
+  const d = world.R - r - 1;
+  const x = world.cx + Math.cos(a) * d;
+  const y = world.cy + Math.sin(a) * d;
+  const spread = (Math.random() - 0.5) * 1.2;
+  const dir = a + Math.PI + spread;
+  const b = makeBall(x, y, Math.cos(dir) * 620, Math.sin(dir) * 620, r, 0);
+  world.balls.push(b);
+}
+
+// --- Fysik -----------------------------------------------------------------
+
+function step(dt) {
+  const balls = world.balls;
+
+  // Rörelse + dragning mot centrum.
+  for (const b of balls) {
+    if (world.gravity > 0) {
+      const dx = world.cx - b.x, dy = world.cy - b.y;
+      const d = Math.hypot(dx, dy) || 1;
+      b.vx += (dx / d) * world.gravity * dt;
+      b.vy += (dy / d) * world.gravity * dt;
+    }
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.flash > 0) b.flash -= dt * 4;
+  }
+
+  // Cirkulär vägg: studsa längs normalen in mot centrum.
+  for (const b of balls) {
+    const dx = b.x - world.cx, dy = b.y - world.cy;
+    const d = Math.hypot(dx, dy);
+    const limit = world.R - b.r;
+    if (d > limit) {
+      const nx = d > 0 ? dx / d : 1, ny = d > 0 ? dy / d : 0;
+      b.x = world.cx + nx * limit;
+      b.y = world.cy + ny * limit;
+      const vn = b.vx * nx + b.vy * ny;
+      if (vn > 0) {
+        b.vx -= (1 + world.restitution) * vn * nx;
+        b.vy -= (1 + world.restitution) * vn * ny;
+      }
+    }
+  }
+
+  collide(balls);
+  for (const b of balls) clampSpeed(b);
+}
+
+// Bredfasen: enkelt rutnät, annars blir det O(n²) när skrotet växer.
+const grid = new Map();
+function collide(balls) {
+  let maxR = MIN_R;
+  for (const b of balls) if (b.r > maxR) maxR = b.r;
+  const cell = Math.max(8, maxR * 2);
+
+  grid.clear();
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
+    const key = (Math.floor(b.x / cell) << 16) ^ (Math.floor(b.y / cell) & 0xffff);
+    let bucket = grid.get(key);
+    if (!bucket) grid.set(key, bucket = []);
+    bucket.push(i);
+  }
+
+  // Endast "framåt"-grannar, så varje par testas exakt en gång.
+  const NEIGH = [[1, 0], [0, 1], [1, 1], [-1, 1]];
+  const spawned = [];
+  for (const [key, bucket] of grid) {
+    for (let a = 0; a < bucket.length; a++) {
+      for (let b = a + 1; b < bucket.length; b++) resolve(balls[bucket[a]], balls[bucket[b]], spawned);
+    }
+    const gx = key >> 16, gy = (key << 16) >> 16;
+    for (const [ox, oy] of NEIGH) {
+      const other = grid.get(((gx + ox) << 16) ^ ((gy + oy) & 0xffff));
+      if (!other) continue;
+      for (const i of bucket) for (const j of other) resolve(balls[i], balls[j], spawned);
+    }
+  }
+  for (const b of spawned) balls.push(b);
+}
+
+function resolve(a, b, spawned) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const rr = a.r + b.r;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= rr * rr || d2 === 0) return;
+
+  const d = Math.sqrt(d2);
+  const nx = dx / d, ny = dy / d;
+
+  // Separera först, viktat efter massa, annars fastnar objekt i varandra.
+  const overlap = rr - d;
+  const invA = 1 / a.m, invB = 1 / b.m, invSum = invA + invB;
+  a.x -= nx * overlap * (invA / invSum);
+  a.y -= ny * overlap * (invA / invSum);
+  b.x += nx * overlap * (invB / invSum);
+  b.y += ny * overlap * (invB / invSum);
+
+  const rvn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+  if (rvn > 0) return;                      // rör sig redan isär
+
+  const impact = -rvn;
+  const j = -(1 + world.restitution) * rvn / invSum;
+  a.vx -= j * invA * nx; a.vy -= j * invA * ny;
+  b.vx += j * invB * nx; b.vy += j * invB * ny;
+
+  world.collisions++;
+  // Blixten skalas med anslaget, annars blinkar hela skärmen när skrotet
+  // studsar smått mot varandra.
+  const flash = Math.min(1, impact / 260);
+  if (flash > a.flash) a.flash = flash;
+  if (flash > b.flash) b.flash = flash;
+
+  fragment(a, b, nx, ny, d, impact, spawned);
+}
+
+// Kesslerbiten: hård krock river loss splitter ur båda objekten.
+function fragment(a, b, nx, ny, d, impact, spawned) {
+  if (impact < world.fragThreshold) return;
+  if (world.fragYield <= 0) return;
+  if (world.balls.length + spawned.length >= world.maxBalls) return;
+
+  const f = world.fragYield;
+  const newA = Math.sqrt(a.m * (1 - f));
+  const newB = Math.sqrt(b.m * (1 - f));
+  if (newA < MIN_R || newB < MIN_R) return;   // för små för att splittras mer
+
+  const dm = a.m * f + b.m * f;               // area som lämnar föräldrarna
+  const rNew = Math.sqrt(dm);
+  if (rNew < MIN_R) return;
+
+  // Rörelsemängden i det bortslagna materialet följer med splittret, plus en
+  // slumpad utkastfart. Den kicken är den energi som får kaskaden att växa.
+  const px = a.m * f * a.vx + b.m * f * b.vx;
+  const py = a.m * f * a.vy + b.m * f * b.vy;
+  const ka = Math.random() * TAU;
+  const kick = world.ejectSpeed * (0.5 + Math.random());
+
+  setRadius(a, newA);
+  setRadius(b, newB);
+
+  // Placeras vid kontaktpunkten men förskjuten i sidled så den inte direkt
+  // ligger inuti någon av föräldrarna.
+  const cxp = a.x + nx * (d * 0.5);
+  const cyp = a.y + ny * (d * 0.5);
+  const side = Math.random() < 0.5 ? 1 : -1;
+  const frag = makeBall(
+    cxp + -ny * side * (rNew + 0.5),
+    cyp + nx * side * (rNew + 0.5),
+    px / dm + Math.cos(ka) * kick,
+    py / dm + Math.sin(ka) * kick,
+    rNew,
+    Math.min(GEN_HUES.length - 1, Math.max(a.gen, b.gen) + 1)
+  );
+  frag.flash = 1;   // nytt splitter markeras alltid
+  clampSpeed(frag);
+  spawned.push(frag);
+}
+
+// --- Rendering -------------------------------------------------------------
+
+const view = document.getElementById("view");
+const ctx = view.getContext("2d");
+let dpr = 1;
+
+function resize() {
+  const rect = view.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  view.width = Math.max(1, Math.round(rect.width * dpr));
+  view.height = Math.max(1, Math.round(rect.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const prevR = world.R;
+  world.cx = rect.width / 2;
+  world.cy = rect.height / 2;
+  world.R = Math.max(60, Math.min(rect.width, rect.height) / 2 - 14);
+
+  // Skala om innehållet så inget hamnar utanför den nya ringen.
+  if (prevR > 0 && world.balls.length) {
+    const k = world.R / prevR;
+    for (const b of world.balls) {
+      b.x = world.cx + (b.x - world.cx) * k;
+      b.y = world.cy + (b.y - world.cy) * k;
+    }
+  }
+  stars = makeStars(rect.width, rect.height);
+  clearCanvas();
+}
+
+let stars = [];
+function makeStars(w, h) {
+  const out = [];
+  for (let i = 0; i < Math.round(w * h / 5200); i++) {
+    out.push({ x: Math.random() * w, y: Math.random() * h, a: 0.15 + Math.random() * 0.5 });
+  }
+  return out;
+}
+
+function clearCanvas() {
+  ctx.fillStyle = "#05070f";
+  ctx.fillRect(0, 0, view.width / dpr, view.height / dpr);
+}
+
+function draw() {
+  const w = view.width / dpr, h = view.height / dpr;
+
+  if (world.trails) {
+    ctx.fillStyle = "rgba(5,7,15,0.26)";
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    clearCanvas();
+  }
+
+  ctx.fillStyle = "#ffffff";
+  for (const s of stars) {
+    ctx.globalAlpha = s.a * 0.5;
+    ctx.fillRect(s.x, s.y, 1, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // Bana + insida
+  ctx.beginPath();
+  ctx.arc(world.cx, world.cy, world.R, 0, TAU);
+  ctx.fillStyle = "rgba(20,32,58,0.32)";
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(76,201,240,0.55)";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(world.cx, world.cy, world.R * 0.42, 0, TAU);
+  ctx.strokeStyle = "rgba(76,201,240,0.10)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  for (const b of world.balls) {
+    const hue = GEN_HUES[b.gen];
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, TAU);
+    ctx.fillStyle = `hsl(${hue} 85% ${b.gen === 0 ? 62 : 58}%)`;
+    ctx.fill();
+    if (b.r > 4) {
+      ctx.beginPath();
+      ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.34, 0, TAU);
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.fill();
+    }
+    if (b.flash > 0.12) {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r + 5 * b.flash + 2, 0, TAU);
+      ctx.strokeStyle = `hsla(${hue} 100% 78% / ${b.flash * 0.8})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }
+
+  if (drag.active) {
+    ctx.beginPath();
+    ctx.moveTo(drag.x0, drag.y0);
+    ctx.lineTo(drag.x1, drag.y1);
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(drag.x0, drag.y0, 8, 0, TAU);
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.stroke();
+  }
+}
+
+// --- Statistik och graf ----------------------------------------------------
+
+const history = [];       // {n} en gång per 0,25 s
+const rateWindow = [];    // krocktider för krockar/s
+let lastCollisions = 0;
+let sampleAcc = 0;
+
+const graph = document.getElementById("graph");
+const gctx = graph.getContext("2d");
+
+function sample(dt) {
+  const newOnes = world.collisions - lastCollisions;
+  lastCollisions = world.collisions;
+  for (let i = 0; i < newOnes; i++) rateWindow.push(world.time);
+  while (rateWindow.length && rateWindow[0] < world.time - 1) rateWindow.shift();
+
+  sampleAcc += dt;
+  if (sampleAcc >= 0.25) {
+    sampleAcc = 0;
+    history.push(world.balls.length);
+    if (history.length > 220) history.shift();
+  }
+}
+
+function drawGraph() {
+  const rect = graph.getBoundingClientRect();
+  if (graph.width !== Math.round(rect.width * dpr)) {
+    graph.width = Math.round(rect.width * dpr);
+    graph.height = Math.round(rect.height * dpr);
+  }
+  const w = graph.width / dpr, h = graph.height / dpr;
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  gctx.clearRect(0, 0, w, h);
+  if (history.length < 2) return;
+
+  const max = Math.max(world.maxBalls * 0.25, ...history);
+  gctx.beginPath();
+  for (let i = 0; i < history.length; i++) {
+    const x = (i / (history.length - 1)) * w;
+    const y = h - 3 - (history[i] / max) * (h - 8);
+    i ? gctx.lineTo(x, y) : gctx.moveTo(x, y);
+  }
+  gctx.strokeStyle = "#4cc9f0";
+  gctx.lineWidth = 1.5;
+  gctx.stroke();
+  gctx.lineTo(w, h); gctx.lineTo(0, h); gctx.closePath();
+  gctx.fillStyle = "rgba(76,201,240,0.16)";
+  gctx.fill();
+}
+
+const el = id => document.getElementById(id);
+function updateStats() {
+  el("s-objects").textContent = world.balls.length;
+  el("s-rate").textContent = rateWindow.length;
+  el("s-total").textContent = world.collisions;
+
+  // Eskalerande = populationen växer tydligt över det senaste par sekunderna.
+  let state = "Stabil", color = "#e8edf7";
+  if (world.balls.length >= world.maxBalls) { state = "Mättad"; color = "#ffd166"; }
+  else if (history.length > 12) {
+    const now = history[history.length - 1];
+    const then = history[history.length - 12];
+    if (now > then * 1.08 + 1) { state = "Eskalerar"; color = "#ff5d5d"; }
+    else if (now > then + 0.5) { state = "Växer"; color = "#ffd166"; }
+  }
+  const s = el("s-state");
+  s.textContent = state;
+  s.style.color = color;
+}
+
+// --- Loop ------------------------------------------------------------------
+
+let acc = 0, last = performance.now();
+function frame(now) {
+  let elapsed = Math.min((now - last) / 1000, 0.1);
+  last = now;
+
+  if (world.running) {
+    const scale = world.slow ? 0.25 : 1;
+    acc += elapsed * scale;
+    let steps = 0;
+    while (acc >= FIXED_DT && steps < MAX_STEPS) {
+      step(FIXED_DT);
+      world.time += FIXED_DT;
+      acc -= FIXED_DT;
+      steps++;
+    }
+    if (acc > FIXED_DT * MAX_STEPS) acc = 0;
+    sample(elapsed * scale);
+  }
+
+  draw();
+  drawGraph();
+  updateStats();
+  requestAnimationFrame(frame);
+}
+
+// --- Interaktion -----------------------------------------------------------
+
+const drag = { active: false, x0: 0, y0: 0, x1: 0, y1: 0 };
+
+function localPoint(ev) {
+  const rect = view.getBoundingClientRect();
+  return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+}
+
+view.addEventListener("pointerdown", ev => {
+  const p = localPoint(ev);
+  if (Math.hypot(p.x - world.cx, p.y - world.cy) > world.R - 6) return;
+  drag.active = true;
+  drag.x0 = drag.x1 = p.x;
+  drag.y0 = drag.y1 = p.y;
+  view.setPointerCapture(ev.pointerId);
+  hideHint();
+});
+view.addEventListener("pointermove", ev => {
+  if (!drag.active) return;
+  const p = localPoint(ev);
+  drag.x1 = p.x; drag.y1 = p.y;
+});
+view.addEventListener("pointerup", () => {
+  if (!drag.active) return;
+  drag.active = false;
+  // Slangbella: dra bakåt och släpp.
+  const vx = (drag.x0 - drag.x1) * 2.6;
+  const vy = (drag.y0 - drag.y1) * 2.6;
+  const b = makeBall(drag.x0, drag.y0, vx, vy, 10, 0);
+  clampSpeed(b);
+  world.balls.push(b);
+});
+view.addEventListener("pointercancel", () => { drag.active = false; });
+
+let hintTimer = setTimeout(hideHint, 6000);
+function hideHint() {
+  clearTimeout(hintTimer);
+  const h = el("hint");
+  h.style.opacity = "0";
+}
+
+// Reglagen: [range-id, statusfält, world-nyckel, omvandling, etikett]
+const controls = [
+  ["r-threshold", "v-threshold", "fragThreshold", v => v, v => Math.round(v) + " px/s"],
+  ["r-yield", "v-yield", "fragYield", v => v / 100, v => Math.round(v) + " %"],
+  ["r-eject", "v-eject", "ejectSpeed", v => v, v => Math.round(v) + " px/s"],
+  ["r-rest", "v-rest", "restitution", v => v / 100, v => (v / 100).toFixed(2)],
+  ["r-grav", "v-grav", "gravity", v => v * 2, v => Math.round(v) + " %"],
+  ["r-max", "v-max", "maxBalls", v => v, v => String(Math.round(v))]
+];
+
+for (const [rid, vid, key, toWorld, label] of controls) {
+  const input = el(rid);
+  // Startvärdet läses ur world så reglage och simulering aldrig glider isär.
+  const initial = key === "fragYield" ? world.fragYield * 100
+    : key === "restitution" ? world.restitution * 100
+    : key === "gravity" ? world.gravity / 2
+    : world[key];
+  input.value = String(initial);
+  const sync = () => {
+    const raw = Number(input.value);
+    world[key] = toWorld(raw);
+    el(vid).textContent = label(raw);
+  };
+  input.addEventListener("input", sync);
+  sync();
+}
+
+el("c-trails").addEventListener("change", e => {
+  world.trails = e.target.checked;
+  if (!world.trails) clearCanvas();
+});
+el("c-slow").addEventListener("change", e => { world.slow = e.target.checked; });
+
+el("btn-play").addEventListener("click", () => {
+  world.running = !world.running;
+  el("btn-play").textContent = world.running ? "Pausa" : "Kör";
+  last = performance.now();
+});
+el("btn-reset").addEventListener("click", () => { reset(); clearCanvas(); });
+el("btn-add").addEventListener("click", () => {
+  for (let i = 0; i < 10; i++) spawnBall(7 + Math.random() * 9, 0);
+});
+el("btn-strike").addEventListener("click", strike);
+
+window.addEventListener("keydown", ev => {
+  if (ev.target.matches("input, button")) return;
+  if (ev.code === "Space") { ev.preventDefault(); el("btn-play").click(); }
+  else if (ev.key === "r" || ev.key === "R") el("btn-reset").click();
+  else if (ev.key === "a" || ev.key === "A") el("btn-add").click();
+});
+
+const sw = el("swatches");
+for (const hue of GEN_HUES) {
+  const i = document.createElement("i");
+  i.style.background = `hsl(${hue} 85% 60%)`;
+  sw.appendChild(i);
+}
+
+window.addEventListener("resize", resize);
+resize();
+reset();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
