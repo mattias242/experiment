@@ -56,8 +56,10 @@ const PROVIDERS = {
   // NSR har eget API och täcker sex kommuner från en instans.
   nsr: { kind: "nsr", base: "https://nsr.se/api/wastecalendar" },
   nvoa: { kind: "edp", base: "https://futureweb.nvoa.se/EDP/FutureWebBasic/SimpleWastePickup" },
-  // Ökrab: Sysav tar över Tomelilla och Simrishamn 2026-09-01, så den här
-  // instansen kan försvinna. Bevaka – hellre en ärlig felruta än gamla datum.
+  // Ökrab: Sysav tog över Tomelilla och Simrishamn 2026-09-01. Kontrollerad
+  // 2026-09-01 efter övertagandet – instansen svarar fortfarande med
+  // aktuella hämtningsdatum för båda kommunerna. Bevaka ändå framöver;
+  // hellre en ärlig felruta än gamla datum om den stängs senare.
   okrab: { kind: "exde", base: "https://minasidor.okrab.se/MinaSidor_API/api/external" },
   orebro: { kind: "edp", base: "https://futureweb.orebro.se/FutureWeb/SimpleWastePickup" },
   orust: { kind: "edp", base: "https://va-renhallning-minasidor.orust.se/FutureWebBasic/SimpleWastePickup" },
