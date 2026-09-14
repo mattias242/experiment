@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Förändringskartan – så flyttade sig rösterna 2022 → 2026</title>
-<meta name="description" content="Interaktiv karta över hur partiernas stöd förändrats mellan riksdagsvalen 2022 och 2026. Orange = ökning, lila = minskning, grått = oförändrat. Zooma från valkrets till kommun till enskilt valdistrikt.">
+<title>Förändringskartan</title>
+<meta name="description" content="Interaktiv karta över hur partiernas stöd förändrats mellan valen 2022 och 2026 – till riksdagen, regionfullmäktige och kommunfullmäktige. Orange = ökning, lila = minskning, grått = oförändrat. Zooma från län till kommun till enskilt valdistrikt.">
 <link rel="stylesheet" href="karta.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
 </head>
@@ -17,7 +17,7 @@
       <span class="logo-mark" aria-hidden="true">🗺️</span>
       <span class="logo-text">Förändringskartan</span>
     </span>
-    <p class="topp-underrubrik" id="underrubrik">Riksdagsvalet 2026 jämfört med 2022</p>
+    <p class="topp-underrubrik" id="underrubrik">Laddar …</p>
     <nav class="topp-nav">
       <a href="index.html">Din ledamot</a>
       <a href="#om">Om kartan</a>
@@ -33,6 +33,14 @@
 
     <!-- ---------- Styrpanel ---------- -->
     <aside class="panel" aria-label="Inställningar">
+
+      <section class="block">
+        <h2 class="block-rubrik">Vilket val?</h2>
+        <div class="valtyp" id="valtyp" role="group" aria-label="Vilket val"></div>
+        <p class="block-hjalp">
+          Samma karta för alla tre valen den 13 september 2026.
+        </p>
+      </section>
 
       <section class="block">
         <h2 class="block-rubrik"><label for="matt">Vad ska visas?</label></h2>
@@ -73,8 +81,8 @@
 
       <section class="block">
         <h2 class="block-rubrik">Område</h2>
-        <label class="radetikett" for="filter-valkrets">Region (riksdagsvalkrets)</label>
-        <select id="filter-valkrets" class="valj"></select>
+        <label class="radetikett" for="filter-topp" id="filter-topp-etikett">Län</label>
+        <select id="filter-topp" class="valj"></select>
         <label class="radetikett" for="filter-kommun">Kommun</label>
         <select id="filter-kommun" class="valj"></select>
         <label class="radetikett" for="sok">Sök valdistrikt eller kommun</label>
@@ -89,7 +97,7 @@
       <section class="block">
         <h2 class="block-rubrik">Detaljnivå</h2>
         <div class="niva" role="group" aria-label="Detaljnivå">
-          <button type="button" class="knapp niva-knapp" data-niva="valkrets">Region</button>
+          <button type="button" class="knapp niva-knapp" data-niva="topp" id="niva-topp">Län</button>
           <button type="button" class="knapp niva-knapp" data-niva="kommun">Kommun</button>
           <button type="button" class="knapp niva-knapp" data-niva="valdistrikt">Valdistrikt</button>
         </div>
@@ -156,6 +164,34 @@
       ökning, desto mer orange. Ju större minskning, desto mer lila. Ett område
       som röstar likadant som 2022 blir grått. Kartan visar alltså inte vem som
       är störst – den visar var rösterna har flyttat på sig.
+    </p>
+
+    <h3>Tre val, samma karta</h3>
+    <p>
+      Den 13 september 2026 hölls tre val samtidigt, och kartan visar vilket
+      som helst av dem. Indelningen skiljer sig åt: riksdagsvalet räknas i
+      29 valkretsar, regionvalet i 20 regioner och kommunvalet i 21 län.
+      Kommunerna och valdistrikten är desamma i alla tre.
+    </p>
+    <p>
+      Gotland saknas i regionvalet. Där finns ingen region – Gotlands kommun
+      sköter regionens uppgifter, och något val till regionfullmäktige hålls
+      alltså inte.
+    </p>
+
+    <h3>Lokala partier</h3>
+    <p>
+      Partilistan visar de partier som ställt upp i det område du tittar på,
+      störst först. I kommunvalet betyder det att lokala partier finns med
+      under eget namn – Stenungsundspartiet dyker upp när du är i Stenungsund,
+      men inte när du ser hela landet. Ett parti som inte ställt upp i ett
+      område räknas som noll röster där, vilket är det rätta svaret: väljarna
+      hade det inte att rösta på.
+    </p>
+    <p>
+      De allra minsta partierna redovisar Valmyndigheten inte var för sig, utan
+      i klumpen <em>Övriga anmälda partier</em>. Ett parti kan därför se ut att
+      ha noll röster i ett område där det i själva verket fått några enstaka.
     </p>
 
     <h3>Hur områden vägs ihop</h3>

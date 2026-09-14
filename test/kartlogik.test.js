@@ -7,57 +7,82 @@ const {
   valdeltagande, farg, nollfarg, automatiskSkala, formateraForandring,
 } = require("../docs/kartlogik.js");
 
-// Hjälpare: ett valdistrikt med två partier, angivna som röstetal.
-const krets = (rostberattigade, nu, fore, extra = {}) => ({
-  rb: rostberattigade,
-  rb0: extra.rb0 ?? rostberattigade,
-  t: extra.t ?? nu.reduce((a, b) => a + b, 0),
-  t0: extra.t0 ?? fore.reduce((a, b) => a + b, 0),
-  g: nu.reduce((a, b) => a + b, 0),
-  g0: fore.reduce((a, b) => a + b, 0),
-  r: nu,
-  r0: fore,
-  c: 1,
-  j: 1,
-  ...extra,
-});
+// Hjälpare: ett valdistrikt där rösterna anges som { partikod: antal }.
+const krets = (rostberattigade, nu, fore, extra = {}) => {
+  const summa = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+  return {
+    rb: rostberattigade,
+    rb0: extra.rb0 ?? rostberattigade,
+    t: extra.t ?? summa(nu),
+    t0: extra.t0 ?? summa(fore),
+    g: summa(nu),
+    g0: summa(fore),
+    r: nu,
+    r0: fore,
+    c: 1,
+    j: 1,
+    ...extra,
+  };
+};
 
 describe("sammanvägning av områden", () => {
   it("väger delarna efter storlek, inte efter antal", () => {
     // Uppdragets eget exempel: +2 procentenheter i en krets med 1 000 röstande
     // och ±0 i en annan krets med 1 000 röstande ska bli +1 tillsammans.
-    const a = krets(1000, [220, 780], [200, 800]);
-    const b = krets(1000, [300, 700], [300, 700]);
-    assert.equal(forandringParti(a, 0), 2);
-    assert.equal(forandringParti(b, 0), 0);
-    assert.equal(forandringParti(summera([a, b]), 0), 1);
+    const a = krets(1000, { S: 220, M: 780 }, { S: 200, M: 800 });
+    const b = krets(1000, { S: 300, M: 700 }, { S: 300, M: 700 });
+    assert.equal(forandringParti(a, "S"), 2);
+    assert.equal(forandringParti(b, "S"), 0);
+    assert.equal(forandringParti(summera([a, b]), "S"), 1);
   });
 
   it("låter en stor krets väga tyngre än en liten", () => {
     // +10 procentenheter i en krets med 3 000 röster och ±0 i en med 1 000
     // ska ge +7,5 – inte +5 som ett rakt medelvärde skulle ge.
-    const stor = krets(3000, [1200, 1800], [900, 2100]);
-    const liten = krets(1000, [300, 700], [300, 700]);
-    assert.equal(forandringParti(stor, 0), 10);
-    assert.equal(forandringParti(summera([stor, liten]), 0), 7.5);
+    const stor = krets(3000, { S: 1200, M: 1800 }, { S: 900, M: 2100 });
+    const liten = krets(1000, { S: 300, M: 700 }, { S: 300, M: 700 });
+    assert.equal(forandringParti(stor, "S"), 10);
+    assert.equal(forandringParti(summera([stor, liten]), "S"), 7.5);
   });
 
   it("summerar röstberättigade, röster och flaggor", () => {
     const s = summera([
-      krets(1000, [220, 780], [200, 800]),
-      krets(500, [100, 400], [0, 0], { j: 0, c: 0, g0: 0, t0: 0 }),
+      krets(1000, { S: 220, M: 780 }, { S: 200, M: 800 }),
+      krets(500, { S: 100, M: 400 }, {}, { j: 0, c: 0 }),
     ]);
     assert.equal(s.rb, 1500);
     assert.equal(s.antal, 2);
-    assert.equal(s.raknade, 1);
+    assert.equal(s.raknadeDelar, 1);
     assert.equal(s.utanJamforelse, 1);
-    assert.deepEqual(s.r, [320, 1180]);
+    assert.deepEqual(s.r, { S: 320, M: 1180 });
   });
 
   it("ger tom summa för tom lista utan att krascha", () => {
     const s = summera([]);
-    assert.deepEqual(s.r, []);
-    assert.equal(forandringParti(s, 0), null);
+    assert.deepEqual(s.r, {});
+    assert.equal(forandringParti(s, "S"), null);
+  });
+});
+
+describe("lokala partier", () => {
+  // I kommunvalet ställer lokala partier upp i en enda kommun. Partierna kan
+  // därför inte ligga i en fast lista – de slås upp på sin partikod.
+  const medLokalt = krets(1000, { S: 200, St: 130, M: 670 }, { S: 300, M: 700 });
+  const utanLokalt = krets(1000, { S: 300, M: 700 }, { S: 300, M: 700 });
+
+  it("räknar ett nytt lokalt parti mot noll året innan", () => {
+    assert.equal(forandringParti(medLokalt, "St"), 13);
+  });
+
+  it("säger ±0 för ett parti som inte ställt upp i området", () => {
+    // Väljarna hade det inte att rösta på – det är noll röster, inte okänt.
+    assert.equal(forandringParti(utanLokalt, "St"), 0);
+  });
+
+  it("tar med lokala partier när områden vägs ihop", () => {
+    const ihop = summera([medLokalt, utanLokalt]);
+    assert.equal(ihop.r.St, 130);
+    assert.equal(forandringParti(ihop, "St"), 6.5);
   });
 });
 
@@ -68,29 +93,31 @@ describe("andelar och förändringar", () => {
 
   it("säger null i stället för noll procent när inget är räknat", () => {
     assert.equal(andel(0, 0), null);
-    const oraknat = krets(1200, [0, 0], [300, 700], { g: 0, t: 0 });
-    assert.equal(forandringParti(oraknat, 0), null);
+    const oraknat = krets(1200, {}, { S: 300, M: 700 });
+    assert.equal(forandringParti(oraknat, "S"), null);
   });
 
   it("säger null när 2022 saknas helt", () => {
     // Så ser ett omritat valdistrikt ut i Valmyndighetens data.
-    const nytt = krets(900, [200, 500], [0, 0], { j: 0, g0: 0, t0: 0, rb0: 0 });
-    assert.equal(forandringParti(nytt, 0), null);
+    const nytt = krets(900, { S: 200, M: 500 }, {}, { rb0: 0 });
+    assert.equal(forandringParti(nytt, "S"), null);
     assert.equal(forandringValdeltagande(nytt), null);
   });
 
   it("räknar valdeltagande på alla avlagda röster", () => {
-    const k = krets(1000, [400, 400], [500, 400], { t: 820, t0: 910, rb0: 1000 });
+    const k = krets(1000, { S: 400, M: 400 }, { S: 500, M: 400 },
+      { t: 820, t0: 910, rb0: 1000 });
     assert.equal(valdeltagande(k, "nu"), 82);
     assert.equal(valdeltagande(k, "fore"), 91);
     assert.equal(forandringValdeltagande(k), -9);
   });
 
   it("väljer mått efter vad man frågar om", () => {
-    const k = krets(1000, [400, 400], [500, 400], { t: 820, t0: 910, rb0: 1000 });
+    const k = krets(1000, { S: 400, M: 400 }, { S: 500, M: 400 },
+      { t: 820, t0: 910, rb0: 1000 });
     assert.equal(forandring(k, "valdeltagande"), -9);
-    assert.equal(forandring(k, 0), 50 - (500 / 900) * 100);
-    assert.equal(forandring(null, 0), null);
+    assert.equal(forandring(k, "S"), 50 - (500 / 900) * 100);
+    assert.equal(forandring(null, "S"), null);
   });
 });
 
