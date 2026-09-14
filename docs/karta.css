@@ -1,0 +1,219 @@
+/* Förändringskartan – valresultat 2026 jämfört med 2022 */
+
+:root {
+  --bg: #f6f7f9;
+  --yta: #ffffff;
+  --yta-dov: #eef1f5;
+  --linje: #dde2e9;
+  --linje-stark: #b9c2cd;
+  --text: #1c2733;
+  --text-svag: #51606f;
+  --text-mild: #7a8794;
+  --accent: #2f5aa8;
+  --accent-ljus: #e8eef8;
+  --plus: #c24a06;
+  --minus: #6b3fb5;
+  --hav: #eaeef2;
+  --radie: 12px;
+  --skugga: 0 1px 2px rgba(16, 30, 54, .06), 0 4px 16px rgba(16, 30, 54, .05);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+a { color: var(--accent); }
+.dold {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.skiplink { position: absolute; left: -9999px; top: 0; background: var(--yta); padding: .5rem 1rem; z-index: 100; }
+.skiplink:focus { left: 0; }
+
+/* ---------- Sidhuvud ---------- */
+
+.topp { background: var(--yta); border-bottom: 1px solid var(--linje); }
+.topp-inner {
+  max-width: 1440px; margin: 0 auto; padding: .65rem 1rem;
+  display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+}
+.logo { font-weight: 700; font-size: 1.05rem; display: flex; align-items: baseline; gap: .45rem; }
+.topp-underrubrik { margin: 0; color: var(--text-svag); font-size: .9rem; flex: 1 1 auto; }
+.topp-nav { display: flex; gap: 1rem; font-size: .9rem; }
+
+.banner {
+  background: #fff6e0; border-bottom: 1px solid #eadcb6; color: #6a4c07;
+  padding: .55rem 1rem; font-size: .88rem; text-align: center;
+}
+
+#innehall { max-width: 1440px; margin: 0 auto; padding: 1rem; }
+
+/* ---------- Layout ---------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 300px;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.panel {
+  background: var(--yta); border: 1px solid var(--linje);
+  border-radius: var(--radie); box-shadow: var(--skugga);
+  padding: .9rem; position: sticky; top: .75rem;
+}
+@media (max-width: 1100px) { .panel { position: static; } }
+
+.block + .block { margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid var(--linje); }
+.block-rubrik { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-mild); margin: 0 0 .45rem; font-weight: 700; }
+.block-hjalp { margin: .5rem 0 0; font-size: .8rem; color: var(--text-svag); }
+.radetikett { display: block; font-size: .78rem; color: var(--text-svag); margin: .6rem 0 .2rem; }
+
+.valj {
+  width: 100%; font: inherit; font-size: .9rem; padding: .4rem .5rem;
+  border: 1px solid var(--linje-stark); border-radius: 8px; background: var(--yta);
+  color: var(--text);
+}
+.valj:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.knapp {
+  font: inherit; font-size: .85rem; padding: .4rem .7rem; cursor: pointer;
+  border: 1px solid var(--linje-stark); background: var(--yta); color: var(--text);
+  border-radius: 8px;
+}
+.knapp:hover { background: var(--yta-dov); }
+.knapp[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.knapp-sekundar { width: 100%; margin-top: .7rem; }
+.niva { display: flex; gap: .3rem; }
+.niva-knapp { flex: 1; padding: .4rem .2rem; }
+
+/* ---------- Färgskala ---------- */
+
+.legend-stapel { height: 14px; border-radius: 7px; border: 1px solid var(--linje-stark); }
+.legend-text {
+  display: flex; justify-content: space-between;
+  font-size: .78rem; color: var(--text-svag); margin-top: .25rem;
+  font-variant-numeric: tabular-nums;
+}
+.legend-forklaring { margin: .5rem 0 0; font-size: .8rem; color: var(--text-svag); }
+.legend-ovrigt { list-style: none; padding: 0; margin: .5rem 0 0; font-size: .78rem; color: var(--text-svag); }
+.legend-ovrigt li { display: flex; align-items: center; gap: .4rem; padding: .08rem 0; }
+.prov { width: .85rem; height: .85rem; border-radius: 3px; border: 1px solid var(--linje-stark); flex: none; }
+.prov[data-prov="ingen"] { background: #f2f0ec; }
+.prov[data-prov="oraknat"] { background: #e2e5ea; }
+.prov[data-prov="utanfor"] { background: #dfe3e9; }
+
+/* ---------- Karta ---------- */
+
+.kartruta {
+  background: var(--yta); border: 1px solid var(--linje);
+  border-radius: var(--radie); box-shadow: var(--skugga); overflow: hidden;
+}
+.brodsmula {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem;
+  padding: .55rem .8rem; border-bottom: 1px solid var(--linje);
+  font-size: .85rem; min-height: 2.6rem;
+}
+.brodsmula button {
+  font: inherit; font-size: .85rem; background: none; border: none; padding: .1rem .2rem;
+  color: var(--accent); cursor: pointer; border-radius: 5px;
+}
+.brodsmula button:hover { background: var(--accent-ljus); }
+.brodsmula .nu { color: var(--text); font-weight: 600; }
+.brodsmula .pil { color: var(--text-mild); }
+
+.kartyta { position: relative; background: var(--hav); }
+#duk { display: block; width: 100%; height: 74vh; min-height: 420px; touch-action: none; cursor: grab; }
+#duk.drar { cursor: grabbing; }
+#duk:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.kartknappar { position: absolute; right: .6rem; top: .6rem; display: flex; flex-direction: column; gap: .3rem; }
+.knapp-ikon { width: 2rem; height: 2rem; padding: 0; font-size: 1rem; line-height: 1; box-shadow: var(--skugga); }
+
+.verktygstips {
+  position: absolute; pointer-events: none; z-index: 5;
+  background: rgba(20, 28, 38, .94); color: #fff; padding: .45rem .6rem;
+  border-radius: 8px; font-size: .82rem; line-height: 1.4; max-width: 17rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+}
+.verktygstips b { display: block; font-size: .88rem; }
+.verktygstips .tal { font-variant-numeric: tabular-nums; }
+.verktygstips .svag { color: #b8c2cf; }
+/* Panelens orange och lila är för mörka mot tipsets mörka botten. */
+.verktygstips .upp { color: #ffb27a; }
+.verktygstips .ner { color: #c9b0f5; }
+
+.kartladdare {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  margin: 0; background: var(--hav); color: var(--text-svag); font-size: .9rem;
+}
+[hidden] { display: none !important; }
+
+/* ---------- Detaljpanel ---------- */
+
+.panel-detalj h2 { font-size: 1.05rem; margin: 0 0 .15rem; }
+.panel-detalj .plats { color: var(--text-svag); font-size: .82rem; margin: 0 0 .7rem; }
+.detalj-stor {
+  font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  line-height: 1.1; display: flex; align-items: baseline; gap: .4rem;
+}
+.detalj-stor small { font-size: .8rem; font-weight: 500; color: var(--text-svag); }
+.detalj-fakta { list-style: none; padding: 0; margin: .8rem 0 0; font-size: .85rem; }
+.detalj-fakta li { display: flex; justify-content: space-between; gap: .6rem; padding: .2rem 0; }
+.detalj-fakta span:last-child { font-variant-numeric: tabular-nums; }
+
+.partitabell { width: 100%; border-collapse: collapse; margin-top: .9rem; font-size: .85rem; }
+.partitabell th { text-align: right; font-weight: 600; color: var(--text-mild); font-size: .75rem; padding-bottom: .2rem; }
+.partitabell th:first-child { text-align: left; }
+.partitabell td { padding: .18rem 0; font-variant-numeric: tabular-nums; text-align: right; }
+.partitabell td:first-child { text-align: left; font-variant-numeric: normal; }
+.partitabell tr.vald { font-weight: 700; }
+.partiprick { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .4rem; vertical-align: baseline; }
+.upp { color: var(--plus); }
+.ner { color: var(--minus); }
+
+.tomtval { color: var(--text-svag); font-size: .88rem; margin: 0; }
+
+/* ---------- Lista ---------- */
+
+.listruta {
+  margin-top: 1rem; background: var(--yta); border: 1px solid var(--linje);
+  border-radius: var(--radie); box-shadow: var(--skugga); padding: .9rem;
+}
+.list-topp { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.list-topp h2 { font-size: 1.05rem; margin: 0; }
+.list-knappar { display: flex; gap: .3rem; }
+.tabellruta { overflow-x: auto; margin-top: .6rem; }
+.tabell { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.tabell th, .tabell td { padding: .35rem .5rem; border-bottom: 1px solid var(--linje); }
+.tabell th { text-align: left; font-size: .78rem; color: var(--text-mild); text-transform: uppercase; letter-spacing: .04em; }
+.tabell .hoger { text-align: right; }
+.tabell td.hoger { font-variant-numeric: tabular-nums; }
+.tabell tbody tr { cursor: pointer; }
+.tabell tbody tr:hover { background: var(--yta-dov); }
+.tabell tbody tr.vald { background: var(--accent-ljus); }
+.tabell .prick { display: inline-block; width: .75rem; height: .75rem; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); margin-right: .5rem; vertical-align: -1px; }
+.list-fot { margin: .6rem 0 0; font-size: .8rem; color: var(--text-svag); }
+
+/* ---------- Om ---------- */
+
+.om { margin-top: 1rem; background: var(--yta); border: 1px solid var(--linje);
+  border-radius: var(--radie); box-shadow: var(--skugga); padding: 1rem 1.2rem; }
+.om h2 { font-size: 1.1rem; margin: 0 0 .5rem; }
+.om h3 { font-size: .95rem; margin: 1.1rem 0 .3rem; }
+.om p { margin: .4rem 0; max-width: 62ch; color: var(--text-svag); font-size: .92rem; }
+
+.fot { max-width: 1440px; margin: 0 auto; padding: 1.2rem 1rem 2rem; color: var(--text-mild); font-size: .82rem; }
+.tomt { padding: 1rem; }

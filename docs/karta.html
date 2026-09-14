@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Förändringskartan – så flyttade sig rösterna 2022 → 2026</title>
+<meta name="description" content="Interaktiv karta över hur partiernas stöd förändrats mellan riksdagsvalen 2022 och 2026. Orange = ökning, lila = minskning, grått = oförändrat. Zooma från valkrets till kommun till enskilt valdistrikt.">
+<link rel="stylesheet" href="karta.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+</head>
+<body>
+<a class="skiplink" href="#kartan">Hoppa till kartan</a>
+
+<header class="topp">
+  <div class="topp-inner">
+    <span class="logo">
+      <span class="logo-mark" aria-hidden="true">🗺️</span>
+      <span class="logo-text">Förändringskartan</span>
+    </span>
+    <p class="topp-underrubrik" id="underrubrik">Riksdagsvalet 2026 jämfört med 2022</p>
+    <nav class="topp-nav">
+      <a href="index.html">Din ledamot</a>
+      <a href="#om">Om kartan</a>
+    </nav>
+  </div>
+</header>
+
+<div id="rakningsbanner" class="banner" hidden></div>
+
+<main id="innehall">
+
+  <div class="layout">
+
+    <!-- ---------- Styrpanel ---------- -->
+    <aside class="panel" aria-label="Inställningar">
+
+      <section class="block">
+        <h2 class="block-rubrik"><label for="matt">Vad ska visas?</label></h2>
+        <select id="matt" class="valj"></select>
+        <p class="block-hjalp" id="matt-hjalp"></p>
+      </section>
+
+      <section class="block">
+        <h2 class="block-rubrik">Färgskala</h2>
+        <div class="legend" id="legend">
+          <div class="legend-stapel" id="legend-stapel"></div>
+          <div class="legend-text">
+            <span id="legend-min">−</span>
+            <span id="legend-noll">0</span>
+            <span id="legend-max">+</span>
+          </div>
+          <p class="legend-forklaring">
+            <strong>Orange</strong> = ökat stöd, <strong>lila</strong> = minskat,
+            <strong>grått</strong> = oförändrat.
+          </p>
+          <p class="legend-forklaring" id="legend-skalinfo"></p>
+          <ul class="legend-ovrigt">
+            <li><span class="prov" data-prov="ingen"></span> Saknar jämförbara siffror från 2022</li>
+            <li><span class="prov" data-prov="oraknat"></span> Inte färdigräknat</li>
+            <li><span class="prov" data-prov="utanfor"></span> Utanför det valda området</li>
+          </ul>
+        </div>
+        <label class="radetikett" for="skala">Skalans ytterlägen</label>
+        <select id="skala" class="valj">
+          <option value="auto" selected>Anpassa efter kartan</option>
+          <option value="2">± 2 procentenheter</option>
+          <option value="5">± 5 procentenheter</option>
+          <option value="10">± 10 procentenheter</option>
+          <option value="20">± 20 procentenheter</option>
+          <option value="30">± 30 procentenheter</option>
+        </select>
+      </section>
+
+      <section class="block">
+        <h2 class="block-rubrik">Område</h2>
+        <label class="radetikett" for="filter-valkrets">Region (riksdagsvalkrets)</label>
+        <select id="filter-valkrets" class="valj"></select>
+        <label class="radetikett" for="filter-kommun">Kommun</label>
+        <select id="filter-kommun" class="valj"></select>
+        <label class="radetikett" for="sok">Sök valdistrikt eller kommun</label>
+        <input id="sok" class="valj" type="search" list="soklista" autocomplete="off"
+               placeholder="t.ex. Mörrum östra">
+        <datalist id="soklista"></datalist>
+        <button type="button" id="aterstall" class="knapp knapp-sekundar">
+          Visa hela riket
+        </button>
+      </section>
+
+      <section class="block">
+        <h2 class="block-rubrik">Detaljnivå</h2>
+        <div class="niva" role="group" aria-label="Detaljnivå">
+          <button type="button" class="knapp niva-knapp" data-niva="valkrets">Region</button>
+          <button type="button" class="knapp niva-knapp" data-niva="kommun">Kommun</button>
+          <button type="button" class="knapp niva-knapp" data-niva="valdistrikt">Valdistrikt</button>
+        </div>
+        <p class="block-hjalp">
+          Klicka på kartan för att zooma in ett steg. Rulla för att zooma, dra för att flytta.
+        </p>
+      </section>
+
+    </aside>
+
+    <!-- ---------- Kartan ---------- -->
+    <section class="kartruta" id="kartan" aria-label="Karta">
+      <nav class="brodsmula" id="brodsmula" aria-label="Var du är"></nav>
+      <div class="kartyta">
+        <canvas id="duk" tabindex="0"
+                aria-label="Karta över förändringen mellan valen. Samma siffror finns i tabellen under kartan."></canvas>
+        <div class="kartknappar">
+          <button type="button" class="knapp knapp-ikon" id="zoom-in" aria-label="Zooma in">+</button>
+          <button type="button" class="knapp knapp-ikon" id="zoom-ut" aria-label="Zooma ut">−</button>
+          <button type="button" class="knapp knapp-ikon" id="zoom-passa" aria-label="Passa in området">⤢</button>
+        </div>
+        <div class="verktygstips" id="verktygstips" aria-hidden="true" hidden></div>
+        <p class="kartladdare" id="kartladdare">Laddar kartan …</p>
+      </div>
+    </section>
+
+    <!-- ---------- Detaljer ---------- -->
+    <aside class="panel panel-detalj" id="detalj" aria-live="polite"></aside>
+
+  </div>
+
+  <section class="listruta">
+    <div class="list-topp">
+      <h2 id="listrubrik">Största förändringarna</h2>
+      <div class="list-knappar" role="group" aria-label="Sortering">
+        <button type="button" class="knapp list-knapp" data-sort="ned">Störst ökning</button>
+        <button type="button" class="knapp list-knapp" data-sort="upp">Störst minskning</button>
+        <button type="button" class="knapp list-knapp" data-sort="namn">Namn</button>
+      </div>
+    </div>
+    <div class="tabellruta">
+      <table class="tabell" id="tabell">
+        <caption class="dold" id="tabellcaption">Förändring per område</caption>
+        <thead><tr>
+          <th scope="col">Område</th>
+          <th scope="col" class="hoger">2022</th>
+          <th scope="col" class="hoger">2026</th>
+          <th scope="col" class="hoger">Förändring</th>
+          <th scope="col" class="hoger">Röstberättigade</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="list-fot" id="listfot"></p>
+  </section>
+
+  <section class="om" id="om">
+    <h2>Om kartan</h2>
+
+    <h3>Vad färgerna betyder</h3>
+    <p>
+      Varje område färgas efter hur mycket partiets andel av rösterna har
+      <em>förändrats</em> sedan valet 2022, mätt i procentenheter. Ju större
+      ökning, desto mer orange. Ju större minskning, desto mer lila. Ett område
+      som röstar likadant som 2022 blir grått. Kartan visar alltså inte vem som
+      är störst – den visar var rösterna har flyttat på sig.
+    </p>
+
+    <h3>Hur områden vägs ihop</h3>
+    <p>
+      En kommun är inte medelvärdet av sina valdistrikt – då skulle ett distrikt
+      med 200 röster väga lika tungt som ett med 2 000. I stället summeras
+      rösterna i området och andelen räknas på summan. Varje del väger då
+      proportionellt mot sin storlek: <strong>+2 procentenheter i en krets med
+      1 000 röstande, tillsammans med ±0 i en annan krets med 1 000 röstande,
+      blir +1 procentenhet för de två tillsammans.</strong>
+    </p>
+    <p>
+      Andelarna räknas på <em>röster som påverkar mandatfördelningen</em> –
+      giltiga röster på anmälda partier – precis som Valmyndighetens egna
+      procenttal. Valdeltagandet räknas däremot på alla avlagda röster, även
+      blanka, delat med antalet röstberättigade.
+    </p>
+
+    <h3>Valdistrikt utan jämförelse</h3>
+    <p id="om-jamforbarhet"></p>
+    <p>
+      Därför hämtas kommunernas och regionernas siffror från Valmyndighetens
+      egna summor för hela området i stället för att summeras ihop av
+      valdistrikten. Ett område kan alltså vara jämförbart även när flera av
+      dess distrikt inte är det.
+    </p>
+
+    <h3>Källa</h3>
+    <p id="om-kalla"></p>
+    <p>
+      Data och gränser kommer från Valmyndigheten och får användas fritt med
+      Valmyndigheten som källa. Kartan är byggd av
+      <a href="https://www.val.se/valresultat-och-statistik/statistik-och-data/om-var-oppna-data">Valmyndighetens
+      öppna data</a> och resultatfilerna bakom
+      <a href="https://resultat.val.se/val2026/RD">resultat.val.se</a>.
+      Gränserna är förenklade för att kartan ska gå att rita i en webbläsare –
+      de duger till att känna igen ett område, inte till att mäta med.
+    </p>
+  </section>
+
+</main>
+
+<footer class="fot">
+  <p>
+    Källa: Valmyndigheten. Ingen spårning, inga kakor, ingen server –
+    all beräkning sker i din webbläsare.
+  </p>
+</footer>
+
+<noscript>
+  <p class="tomt">Kartan behöver JavaScript för att rita valresultatet.</p>
+</noscript>
+
+<script src="kartlogik.js"></script>
+<script src="karta.js"></script>
+</body>
+</html>
