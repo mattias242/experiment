@@ -51,6 +51,17 @@ const NIVAER = [
     interval: 1000,
     kvantisering: 20000,
   },
+  // Länen är toppnivå i region- och kommunvalet. Regionerna har samma gränser
+  // som länen, så samma lager duger till båda – Gotland saknar bara motsvarande
+  // region, eftersom kommunen sköter regionens uppgifter där.
+  {
+    fil: 'geografi-lan.json',
+    lager: 'lan',
+    falt: ['Länskod', 'Län'],
+    smaltSamman: { nyckel: 'Länskod', behall: 'Län' },
+    interval: 1000,
+    kvantisering: 20000,
+  },
 ];
 
 const mapshaper = (args) =>

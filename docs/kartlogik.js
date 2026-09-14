@@ -1,6 +1,6 @@
 // Räknesnurran bakom förändringskartan: hur ett områdes förändring vägs ihop
 // ur delarna, och vilken färg förändringen ska ha.
-// Delas mellan webbläsaren (karta.js) och Node (test/kartlogik.test.js).
+// Delas mellan webbläsaren (karta.js) och Node (bygg-valdata.mjs + testerna).
 // Kör testerna med: node --test
 'use strict';
 
@@ -9,6 +9,12 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Kartlogik = api;
 })(typeof self !== 'undefined' ? self : this, function () {
+
+  // Rösterna ligger som { partikod: antal } och inte som en lista, eftersom
+  // partierna skiljer sig åt mellan valen och mellan kommunerna: i
+  // kommunvalet ställer lokala partier upp i en enda kommun. Ett parti som
+  // saknas i ett område har noll röster där.
+  const NUMMERFALT = ['rb', 'rb0', 't', 't0', 'g', 'g0', 'raknade', 'skaRaknas'];
 
   // ---- Sammanvägning ------------------------------------------------------
   //
@@ -23,32 +29,21 @@
   // Andelen räknas på "röster som påverkar mandatfördelningen" (giltiga röster
   // på anmälda partier), precis som Valmyndighetens egna procenttal.
 
-  function summera(delar) {
-    const summa = {
-      rb: 0, rb0: 0, t: 0, t0: 0, g: 0, g0: 0,
-      r: null, r0: null, antal: 0, raknade: 0, utanJamforelse: 0,
-    };
+  function summera(delar, extra = {}) {
+    const summa = { ...extra, r: {}, r0: {}, antal: 0, raknadeDelar: 0, utanJamforelse: 0 };
+    for (const fält of NUMMERFALT) summa[fält] = 0;
     for (const d of delar) {
-      summa.rb += d.rb || 0;
-      summa.rb0 += d.rb0 || 0;
-      summa.t += d.t || 0;
-      summa.t0 += d.t0 || 0;
-      summa.g += d.g || 0;
-      summa.g0 += d.g0 || 0;
+      for (const fält of NUMMERFALT) summa[fält] += d[fält] || 0;
       summa.antal += 1;
-      if (d.c) summa.raknade += 1;
+      if (d.c) summa.raknadeDelar += 1;
       if (d.j === 0) summa.utanJamforelse += 1;
-      if (!summa.r) {
-        summa.r = (d.r || []).slice();
-        summa.r0 = (d.r0 || []).slice();
-      } else {
-        for (let i = 0; i < summa.r.length; i++) {
-          summa.r[i] += (d.r && d.r[i]) || 0;
-          summa.r0[i] += (d.r0 && d.r0[i]) || 0;
-        }
+      for (const [kod, antal] of Object.entries(d.r || {})) {
+        summa.r[kod] = (summa.r[kod] || 0) + antal;
+      }
+      for (const [kod, antal] of Object.entries(d.r0 || {})) {
+        summa.r0[kod] = (summa.r0[kod] || 0) + antal;
       }
     }
-    if (!summa.r) { summa.r = []; summa.r0 = []; }
     return summa;
   }
 
@@ -60,10 +55,11 @@
   }
 
   // Förändringen i procentenheter för ett parti, eller null om något av åren
-  // saknas för området.
-  function forandringParti(omrade, partiIndex) {
-    const nu = andel(omrade.r[partiIndex], omrade.g);
-    const fore = andel(omrade.r0[partiIndex], omrade.g0);
+  // saknas för området. Ett parti utan röster i området finns inte i tabellen,
+  // och räknas då som noll röster – inte som saknad uppgift.
+  function forandringParti(omrade, partikod) {
+    const nu = andel(omrade.r[partikod] || 0, omrade.g);
+    const fore = andel(omrade.r0[partikod] || 0, omrade.g0);
     if (nu === null || fore === null) return null;
     return nu - fore;
   }
@@ -83,7 +79,7 @@
     return nu - fore;
   }
 
-  // Ett mått är antingen ett parti (index i partilistan) eller valdeltagandet.
+  // Ett mått är antingen en partikod eller valdeltagandet.
   function forandring(omrade, matt) {
     if (!omrade) return null;
     return matt === 'valdeltagande'
@@ -97,9 +93,8 @@
   // lika stora steg i förändring ser lika stora ut för ögat, och så att orange
   // och lila har samma ljushet vid samma avstånd från noll – annars ser den
   // ena sidan av skalan kraftigare ut än den andra.
-  const NOLL = [0.895, 0.004, 0.002];              // ljust varmgrått
   const PLUS = [                                    // mot orange
-    [0.895, 0.004, 0.002],
+    [0.895, 0.004, 0.002],                          // ljust varmgrått
     [0.845, 0.043, 0.058],
     [0.780, 0.082, 0.108],
     [0.700, 0.122, 0.142],

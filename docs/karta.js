@@ -1,4 +1,5 @@
-// Förändringskartan: ritar skillnaden mellan riksdagsvalen 2026 och 2022.
+// Förändringskartan: ritar skillnaden mellan valen 2026 och 2022, för valet
+// till riksdagen, regionfullmäktige eller kommunfullmäktige.
 // Ingen server, inga bibliotek – TopoJSON avkodas och ritas på en canvas här.
 // Räknandet ligger i kartlogik.js, som också testas från Node.
 'use strict';
@@ -16,27 +17,39 @@
   // ---- Läge ---------------------------------------------------------------
 
   const lage = {
-    matt: 0,                     // index i partilistan, eller 'valdeltagande'
-    niva: 'valkrets',            // valkrets | kommun | valdistrikt
+    val: 'RD',                   // RD = riksdag, RF = region, KF = kommun
+    matt: null,                  // partikod, eller 'valdeltagande'
+    niva: 'topp',                // topp | kommun | valdistrikt
     omrade: { typ: 'riket', kod: null },
     skala: 'auto',
     vald: null,                  // { niva, kod }
     sortering: 'ned',
   };
 
-  let meta = null;
-  let omraden = null;
-  let distriktPerKod = new Map();
+  let valen = [];                // innehållet i valdata/val.json
+  const valcache = new Map();    // valtyp -> { meta, omraden, distriktPerKod }
+  let data = null;               // det val som visas just nu
 
-  // Varje nivå fylls på av laddaLager med { laddar, enheter: [...], perKod: Map }
+  // Geometrin är densamma i alla tre valen – det är samma valdistrikt och
+  // samma kommuner. Bara toppnivån skiljer: riksdagsvalet delas in i
+  // valkretsar, region- och kommunvalet i län.
   const lager = {
-    valkrets: { fil: 'geografi-valkrets.json', objekt: 'valkrets' },
-    kommun: { fil: 'geografi-kommun.json', objekt: 'kommun' },
-    valdistrikt: { fil: 'geografi-valdistrikt.json', objekt: 'valdistrikt' },
+    valkrets: { fil: 'geografi-valkrets.json', objekt: 'valkrets', kodfalt: 'Riksdagsvalkretskod', namnfalt: 'Riksdagsvalkrets' },
+    lan: { fil: 'geografi-lan.json', objekt: 'lan', kodfalt: 'Länskod', namnfalt: 'Län' },
+    kommun: { fil: 'geografi-kommun.json', objekt: 'kommun', kodfalt: 'Kommunkod', namnfalt: 'Kommun' },
+    valdistrikt: { fil: 'geografi-valdistrikt.json', objekt: 'valdistrikt', kodfalt: 'Valdistriktskod' },
   };
 
-  const NIVANAMN = { valkrets: 'Region', kommun: 'Kommun', valdistrikt: 'Valdistrikt' };
-  const NIVANAMN_FLER = { valkrets: 'regioner', kommun: 'kommuner', valdistrikt: 'valdistrikt' };
+  // Vilket geometrilager en nivå ritas ur.
+  const geoNamn = (niva) => (niva === 'topp'
+    ? (data.meta.toppNivan === 'lan' ? 'lan' : 'valkrets')
+    : niva);
+  const geoLager = (niva) => lager[geoNamn(niva)];
+
+  const nivanamn = (niva) => (niva === 'topp' ? data.meta.toppNamn
+    : niva === 'kommun' ? 'Kommun' : 'Valdistrikt');
+  const nivanamnFler = (niva) => (niva === 'topp' ? data.meta.toppNamnFler
+    : niva === 'kommun' ? 'kommuner' : 'valdistrikt');
 
   // ---- Hämtning -----------------------------------------------------------
 
@@ -44,6 +57,24 @@
     const svar = await fetch(MAPP + fil);
     if (!svar.ok) throw new Error(`Kunde inte hämta ${fil} (HTTP ${svar.status})`);
     return svar.json();
+  }
+
+  async function laddaVal(valtyp) {
+    if (!valcache.has(valtyp)) {
+      const [meta, omraden, distrikt] = await Promise.all([
+        hamtaJson(`${valtyp}/meta.json`),
+        hamtaJson(`${valtyp}/omraden.json`),
+        hamtaJson(`${valtyp}/valdistrikt.json`),
+      ]);
+      valcache.set(valtyp, {
+        meta,
+        omraden,
+        distriktPerKod: new Map(distrikt.map((d) => [d.k, d])),
+        partiPerKod: new Map(meta.partier.map((p) => [p.kod, p])),
+        kommunPerKod: new Map(meta.kommuner.map((k) => [k.kod, k])),
+      });
+    }
+    return valcache.get(valtyp);
   }
 
   // ---- TopoJSON -----------------------------------------------------------
@@ -93,7 +124,7 @@
     });
   }
 
-  function byggEnhet(ringar, props) {
+  function byggEnhet(ringar) {
     const bana = new Path2D();
     let minX = Infinity;
     let minY = Infinity;
@@ -111,37 +142,19 @@
         if (r[i + 1] > maxY) maxY = r[i + 1];
       }
     }
-    return { ringar, bana, ruta: [minX, minY, maxX, maxY], props };
+    return { ringar, bana, ruta: [minX, minY, maxX, maxY] };
   }
 
-  async function laddaLager(niva) {
-    const l = lager[niva];
+  async function laddaGeografi(namn) {
+    const l = lager[namn];
     if (l.enheter) return l;
     if (!l.laddar) {
       l.laddar = (async () => {
-        const behov = [hamtaJson(l.fil)];
-        if (niva === 'valdistrikt' && !distriktPerKod.size) {
-          behov.push(hamtaJson('valdistrikt.json'));
-        }
-        const [topo, distrikt] = await Promise.all(behov);
-        if (distrikt) fyllDistrikt(distrikt);
+        const topo = await hamtaJson(l.fil);
         l.enheter = avkodaTopo(topo, l.objekt).map((f) => {
-          const e = byggEnhet(f.ringar, f.props);
-          if (niva === 'valkrets') {
-            e.kod = f.props.Riksdagsvalkretskod;
-            e.namn = f.props.Riksdagsvalkrets;
-          } else if (niva === 'kommun') {
-            e.kod = f.props.Kommunkod;
-            e.namn = f.props.Kommun;
-            e.vk = f.props.Riksdagsvalkretskod;
-          } else {
-            e.kod = f.props.Valdistriktskod;
-            const d = distriktPerKod.get(e.kod);
-            e.namn = d ? d.n : e.kod;
-            e.km = e.kod.slice(0, 4);
-            e.vk = d ? d.vk : null;
-          }
-          e.data = dataFor(niva, e.kod);
+          const e = byggEnhet(f.ringar);
+          e.kod = f.props[l.kodfalt];
+          e.geonamn = l.namnfalt ? f.props[l.namnfalt] : null;
           return e;
         });
         l.perKod = new Map(l.enheter.map((e) => [e.kod, e]));
@@ -151,35 +164,84 @@
     return l.laddar;
   }
 
-  function fyllDistrikt(distrikt) {
-    distriktPerKod = new Map(distrikt.map((d) => [d.k, d]));
+  // Binder om varje yta mot det val som visas just nu: samma kommunyta har
+  // olika siffror i riksdags-, region- och kommunvalet.
+  function bindData() {
+    for (const niva of ['topp', 'kommun', 'valdistrikt']) {
+      const l = geoLager(niva);
+      if (!l.enheter) continue;
+      for (const e of l.enheter) {
+        e.data = dataFor(niva, e.kod);
+        e.iValet = ingarIValet(niva, e.kod);
+        e.namn = namnFor(niva, e.kod) || e.geonamn || e.kod;
+        if (niva === 'kommun') {
+          e.tp = (data.kommunPerKod.get(e.kod) || {}).tp ?? null;
+        } else if (niva === 'valdistrikt') {
+          e.km = e.kod.slice(0, 4);
+          e.tp = e.data ? e.data.tp : null;
+        }
+      }
+    }
+  }
+
+  // Geometrin är densamma i alla tre valen, men allt ingår inte i alla val:
+  // Gotland har inget regionfullmäktigeval. Sådana ytor ritas i grått som
+  // resten av landet utanför urvalet, och räknas inte som områden i valet.
+  function ingarIValet(niva, kod) {
+    if (niva === 'topp') return data.meta.toppnivan.some((t) => t.kod === kod);
+    if (niva === 'kommun') return data.kommunPerKod.has(kod);
+    return data.distriktPerKod.has(kod);
   }
 
   const dataFor = (niva, kod) => {
-    if (niva === 'valkrets') return omraden.vk[kod] || null;
-    if (niva === 'kommun') return omraden.km[kod] || null;
-    return distriktPerKod.get(kod) || null;
+    if (niva === 'topp') return data.omraden.tp[kod] || null;
+    if (niva === 'kommun') return data.omraden.km[kod] || null;
+    return data.distriktPerKod.get(kod) || null;
   };
+
+  function namnFor(niva, kod) {
+    const d = dataFor(niva, kod);
+    if (d) return d.namn || d.n;
+    if (niva === 'kommun') return (data.kommunPerKod.get(kod) || {}).namn;
+    if (niva === 'topp') {
+      const t = data.meta.toppnivan.find((x) => x.kod === kod);
+      if (t) return t.namn;
+    }
+    const l = geoLager(niva);
+    const e = l.perKod && l.perKod.get(kod);
+    return (e && e.geonamn) || kod;
+  }
+
+  const kommunensTopp = (kommunkod) =>
+    (data.kommunPerKod.get(kommunkod) || {}).tp ?? null;
 
   // ---- Vilka enheter som visas -------------------------------------------
 
-  function synligaEnheter() {
-    const l = lager[lage.niva];
+  // Ytorna i det område man tittar på, inklusive de som inte ingår i valet –
+  // de ska gå att peka på och få en förklaring, men inte räknas eller färgas.
+  function iOmradet() {
+    const l = geoLager(lage.niva);
     if (!l.enheter) return [];
     const o = lage.omrade;
     if (o.typ === 'riket') return l.enheter;
-    if (o.typ === 'valkrets') {
-      if (lage.niva === 'valkrets') return l.enheter.filter((e) => e.kod === o.kod);
-      return l.enheter.filter((e) => e.vk === o.kod);
+    if (o.typ === 'topp') {
+      if (lage.niva === 'topp') return l.enheter.filter((e) => e.kod === o.kod);
+      return l.enheter.filter((e) => e.tp === o.kod);
     }
-    // kommun
     if (lage.niva === 'valdistrikt') return l.enheter.filter((e) => e.km === o.kod);
     if (lage.niva === 'kommun') return l.enheter.filter((e) => e.kod === o.kod);
-    return l.enheter.filter((e) => e.kod === kommunensValkrets(o.kod));
+    return l.enheter.filter((e) => e.kod === kommunensTopp(o.kod));
   }
 
-  const kommunensValkrets = (kommunkod) =>
-    (omraden.km[kommunkod] && omraden.km[kommunkod].vk) || null;
+  const synligaEnheter = () => iOmradet().filter((e) => e.iValet);
+
+  // Området som helhet – det som partilistan och sammanfattningen räknas på.
+  function aktivtOmrade() {
+    const o = lage.omrade;
+    if (o.typ === 'riket') return data.omraden.riket;
+    if (o.typ === 'topp') return data.omraden.tp[o.kod] || null;
+    return data.omraden.km[o.kod] || null;
+  }
 
   // ---- Duken --------------------------------------------------------------
 
@@ -226,15 +288,28 @@
   // hela landet, inte på det man råkar ha på skärmen, så att en färg betyder
   // samma sak före och efter att man zoomat in.
   const skalcache = new Map();
+  const skalgrund = new Map();   // vad skalan räknades på, för legendtexten
   function skalansMax() {
     if (lage.skala !== 'auto') return Number(lage.skala);
-    const nyckel = `${lage.niva}/${lage.matt}`;
-    const alla = lager[lage.niva].enheter;
+    const nyckel = `${lage.val}/${lage.niva}/${lage.matt}`;
+    const alla = geoLager(lage.niva).enheter;
     if (!alla || !alla.length) return 5;      // hunnit fråga innan lagret laddats
     if (!skalcache.has(nyckel)) {
+      // Skalan räknas bara på de områden där partiet faktiskt stått på
+      // valsedeln något av åren. För de stora partierna är det hela landet,
+      // men ett lokalt parti finns i en enda kommun – räknades skalan på alla
+      // 6 626 valdistrikt skulle de 6 600 nollorna trycka ned den till ±1 och
+      // göra kommunen till en enda orange klump.
+      const harRoster = (e) => e.data
+        && ((e.data.r[lage.matt] || 0) > 0 || (e.data.r0[lage.matt] || 0) > 0);
+      const urval = lage.matt === 'valdeltagande' ? alla : alla.filter(harRoster);
+      const underlag = urval.length ? urval : alla;
+      skalgrund.set(nyckel, underlag.length < alla.length * 0.5
+        ? `de ${nivanamnFler(lage.niva)} där ${mattnamn()} ställt upp`
+        : `${nivanamnFler(lage.niva)} i landet`);
       skalcache.set(nyckel, K.automatiskSkala(
-        alla.map((e) => K.forandring(e.data, lage.matt)),
-        alla.map((e) => (e.data && e.data.rb) || 1),
+        underlag.map((e) => K.forandring(e.data, lage.matt)),
+        underlag.map((e) => (e.data && e.data.rb) || 1),
       ));
     }
     return skalcache.get(nyckel);
@@ -257,7 +332,7 @@
     const enheter = synligaEnheter();
     if (!enheter.length) return;
     const max = skalansMax();
-    const iOmradet = new Set(enheter);
+    const medIUrvalet = new Set(enheter);
 
     const [v0x, v0y] = tillVarld(0, hojd);
     const [v1x, v1y] = tillVarld(bredd, 0);
@@ -270,9 +345,9 @@
     // Resten av landet ritas i grått under. Utan det svävar ett inzoomat
     // område fritt i havet och det går inte att se var i Sverige man är.
     const ritade = [];
-    for (const e of lager[lage.niva].enheter) {
+    for (const e of geoLager(lage.niva).enheter) {
       if (!inom(e.ruta)) continue;
-      const valt = iOmradet.has(e);
+      const valt = medIUrvalet.has(e);
       if (valt) ritade.push(e);
       ctx.fillStyle = valt ? fargFor(e, max) : UTANFOR;
       ctx.fill(e.bana);
@@ -287,11 +362,11 @@
 
     // Överordnade gränser ovanpå, så att man ser var kommunen slutar.
     const over = lage.niva === 'valdistrikt' ? 'kommun'
-      : lage.niva === 'kommun' ? 'valkrets' : null;
-    if (over && lager[over].enheter) {
+      : lage.niva === 'kommun' ? 'topp' : null;
+    if (over && geoLager(over).enheter) {
       ctx.strokeStyle = 'rgba(40,54,72,.4)';
       ctx.lineWidth = 1.1 / vy.k;
-      for (const e of lager[over].enheter) {
+      for (const e of geoLager(over).enheter) {
         if (inom(e.ruta)) ctx.stroke(e.bana);
       }
     }
@@ -312,7 +387,7 @@
 
   const valdEnhet = () => {
     if (!lage.vald || lage.vald.niva !== lage.niva) return null;
-    const l = lager[lage.niva];
+    const l = geoLager(lage.niva);
     return (l.perKod && l.perKod.get(lage.vald.kod)) || null;
   };
 
@@ -333,7 +408,7 @@
 
   function enhetVid(px, py) {
     const [x, y] = tillVarld(px, py);
-    const enheter = synligaEnheter();  // grå områden utanför urvalet svarar inte
+    const enheter = iOmradet();  // grå områden utanför urvalet svarar inte
     for (let i = enheter.length - 1; i >= 0; i--) {
       const e = enheter[i];
       const r = e.ruta;
@@ -357,10 +432,12 @@
     $('legend-min').textContent = `−${formateraTal(max)}`;
     $('legend-max').textContent = `+${formateraTal(max)}`;
     $('legend-noll').textContent = '0';
+    const grund = skalgrund.get(`${lage.val}/${lage.niva}/${lage.matt}`)
+      || `${nivanamnFler(lage.niva)} i landet`;
     $('legend-skalinfo').textContent = lage.skala === 'auto'
       ? `Skalan slutar vid ±${formateraTal(max)} procentenheter, satt efter hur ` +
-        `mycket ${NIVANAMN_FLER[lage.niva]} i landet skiljer sig åt. Områden ` +
-        'utanför skalan får den kraftigaste färgen.'
+        `mycket ${grund} skiljer sig åt. Områden utanför skalan får den ` +
+        'kraftigaste färgen.'
       : `Skalan slutar vid ±${formateraTal(max)} procentenheter. Områden utanför ` +
         'skalan får den kraftigaste färgen.';
   }
@@ -371,10 +448,27 @@
   const procent = (v) => (v === null || v === undefined
     ? '–' : `${v.toFixed(1).replace('.', ',')} %`);
 
+  const partiet = (kod) => data.partiPerKod.get(kod) || { kod, kort: kod, namn: kod, farg: '#9aa4b0' };
   const mattnamn = () => (lage.matt === 'valdeltagande'
-    ? 'Valdeltagande' : meta.partier[lage.matt].kort);
+    ? 'Valdeltagande' : partiet(lage.matt).kort);
   const mattnamnLangt = () => (lage.matt === 'valdeltagande'
-    ? 'valdeltagandet' : meta.partier[lage.matt].namn);
+    ? 'valdeltagandet' : partiet(lage.matt).namn);
+
+  // Andelen för ett mått i ett område, ett av åren.
+  const andelen = (d, ar) => {
+    if (!d) return null;
+    if (lage.matt === 'valdeltagande') return K.valdeltagande(d, ar);
+    return ar === 'fore'
+      ? K.andel(d.r0[lage.matt] || 0, d.g0)
+      : K.andel(d.r[lage.matt] || 0, d.g);
+  };
+
+  // Gotland har inget regionfullmäktigeval – kommunen sköter regionens
+  // uppgifter där. Det är inte "saknas data", det är "finns inget val".
+  const utanValForklaring = () => (lage.val === 'RF'
+    ? 'Gotland har inget regionfullmäktigeval – kommunen sköter regionens uppgifter.'
+    : `Området ingår inte i valet till ${data.meta.valtypNamn.toLowerCase()}.`);
+  const saknarVal = (enhet) => !enhet.iValet;
 
   // ---- Verktygstips -------------------------------------------------------
 
@@ -385,16 +479,15 @@
     const d = enhet.data;
     const f = d ? K.forandring(d, lage.matt) : null;
     const rader = [`<b>${htmlsakert(enhet.namn)}</b>`];
-    if (!d || (lage.niva === 'valdistrikt' && !d.c)) {
+    if (saknarVal(enhet)) {
+      rader.push(`<span class="svag">${htmlsakert(utanValForklaring())}</span>`);
+    } else if (!d || (lage.niva === 'valdistrikt' && !d.c)) {
       rader.push('<span class="svag">Inte färdigräknat</span>');
     } else if (f === null) {
       rader.push('<span class="svag">Saknar jämförbara siffror från 2022</span>');
     } else {
-      const nu = lage.matt === 'valdeltagande'
-        ? K.valdeltagande(d, 'nu') : K.andel(d.r[lage.matt], d.g);
-      const fore = lage.matt === 'valdeltagande'
-        ? K.valdeltagande(d, 'fore') : K.andel(d.r0[lage.matt], d.g0);
-      rader.push(`<span class="tal">${mattnamn()}: ${procent(fore)} → ${procent(nu)}</span>`);
+      rader.push(`<span class="tal">${mattnamn()}: ${procent(andelen(d, 'fore'))} ` +
+        `→ ${procent(andelen(d, 'nu'))}</span>`);
       rader.push(`<span class="tal ${f >= 0 ? 'upp' : 'ner'}">` +
         `${K.formateraForandring(f)} procentenheter</span>`);
     }
@@ -424,8 +517,13 @@
     }
     const d = dataFor(vald.niva, vald.kod);
     const namn = namnFor(vald.niva, vald.kod);
-    if (!d) { ruta.innerHTML = `<h2>${htmlsakert(namn)}</h2>` +
-      '<p class="tomtval">Inga siffror.</p>'; return; }
+    if (!d) {
+      ruta.innerHTML = `<h2>${htmlsakert(namn)}</h2><p class="tomtval">` +
+        htmlsakert(ingarIValet(vald.niva, vald.kod)
+          ? 'Inga siffror för det här området.'
+          : utanValForklaring()) + '</p>';
+      return;
+    }
 
     const f = K.forandring(d, lage.matt);
     const delar = [];
@@ -440,22 +538,20 @@
     delar.push(rad('Valdeltagande 2022', procent(K.valdeltagande(d, 'fore'))));
     delar.push(rad('Förändring valdeltagande',
       `${K.formateraForandring(K.forandringValdeltagande(d))} p.e.`));
-    if (d.utanJamforelse) {
-      delar.push(rad('Distrikt utan 2022-siffror', heltal(d.utanJamforelse)));
-    }
+    if (d.ad) delar.push(rad('Valdistrikt', `${heltal(d.ad)}${d.uj ? ` (${heltal(d.uj)} utan 2022)` : ''}`));
     delar.push('</ul>');
 
     delar.push('<table class="partitabell"><thead><tr>' +
       '<th>Parti</th><th>2022</th><th>2026</th><th>Ändring</th></tr></thead><tbody>');
-    const rader = meta.partier.map((p, i) => ({
-      p,
-      i,
-      nu: K.andel(d.r[i], d.g),
-      fore: K.andel(d.r0[i], d.g0),
-      f: K.forandringParti(d, i),
+    const koder = new Set([...Object.keys(d.r), ...Object.keys(d.r0)]);
+    const rader = [...koder].map((kod) => ({
+      p: partiet(kod),
+      nu: K.andel(d.r[kod] || 0, d.g),
+      fore: K.andel(d.r0[kod] || 0, d.g0),
+      f: K.forandringParti(d, kod),
     })).sort((a, b) => (b.nu || 0) - (a.nu || 0));
     for (const r of rader) {
-      delar.push(`<tr${r.i === lage.matt ? ' class="vald"' : ''}>` +
+      delar.push(`<tr${r.p.kod === lage.matt ? ' class="vald"' : ''}>` +
         `<td><span class="partiprick" style="background:${htmlsakert(r.p.farg)}"></span>` +
         `${htmlsakert(r.p.kort)}</td>` +
         `<td>${procent(r.fore)}</td><td>${procent(r.nu)}</td>` +
@@ -469,22 +565,15 @@
   const rad = (etikett, varde) =>
     `<li><span>${htmlsakert(etikett)}</span><span>${htmlsakert(varde)}</span></li>`;
 
-  function namnFor(niva, kod) {
-    const l = lager[niva];
-    if (l.perKod && l.perKod.get(kod)) return l.perKod.get(kod).namn;
-    const d = dataFor(niva, kod);
-    return (d && (d.namn || d.n)) || kod;
-  }
-
   function platsrad(vald) {
-    if (vald.niva === 'valkrets') return 'Riksdagsvalkrets';
+    if (vald.niva === 'topp') return data.meta.toppNamn;
     if (vald.niva === 'kommun') {
-      const vk = kommunensValkrets(vald.kod);
-      return `Kommun i ${namnFor('valkrets', vk)}`;
+      const tp = kommunensTopp(vald.kod);
+      return tp ? `Kommun i ${namnFor('topp', tp)}` : 'Kommun';
     }
-    const d = distriktPerKod.get(vald.kod);
+    const d = data.distriktPerKod.get(vald.kod);
     if (!d) return 'Valdistrikt';
-    return `Valdistrikt i ${namnFor('kommun', d.km)}, ${namnFor('valkrets', d.vk)}`;
+    return `Valdistrikt i ${namnFor('kommun', d.km)}, ${namnFor('topp', d.tp)}`;
   }
 
   // ---- Tabellen -----------------------------------------------------------
@@ -495,7 +584,7 @@
     const rader = enheter.map((e) => ({ e, f: K.forandring(e.data, lage.matt) }));
 
     if (lage.sortering === 'namn') {
-      rader.sort((a, b) => a.e.namn.localeCompare(b.e.namn, 'sv'));
+      rader.sort((a, b) => String(a.e.namn).localeCompare(String(b.e.namn), 'sv'));
     } else {
       const tecken = lage.sortering === 'ned' ? -1 : 1;
       rader.sort((a, b) => {
@@ -508,16 +597,12 @@
     const visa = rader.slice(0, 200);
     const kropp = visa.map(({ e, f }) => {
       const d = e.data;
-      const nu = !d ? null : lage.matt === 'valdeltagande'
-        ? K.valdeltagande(d, 'nu') : K.andel(d.r[lage.matt], d.g);
-      const fore = !d ? null : lage.matt === 'valdeltagande'
-        ? K.valdeltagande(d, 'fore') : K.andel(d.r0[lage.matt], d.g0);
       const valdNu = lage.vald && lage.vald.niva === lage.niva && lage.vald.kod === e.kod;
       return `<tr data-kod="${htmlsakert(e.kod)}"${valdNu ? ' class="vald"' : ''}>` +
         `<td><span class="prick" style="background:${fargFor(e, max)}"></span>` +
         `${htmlsakert(e.namn)}</td>` +
-        `<td class="hoger">${procent(fore)}</td>` +
-        `<td class="hoger">${procent(nu)}</td>` +
+        `<td class="hoger">${procent(andelen(d, 'fore'))}</td>` +
+        `<td class="hoger">${procent(andelen(d, 'nu'))}</td>` +
         `<td class="hoger ${f === null ? '' : f >= 0 ? 'upp' : 'ner'}">` +
         `${K.formateraForandring(f)}</td>` +
         `<td class="hoger">${heltal(d && d.rb)}</td></tr>`;
@@ -526,14 +611,16 @@
     $('tabell').querySelector('tbody').innerHTML = kropp ||
       '<tr><td colspan="5">Inga områden att visa.</td></tr>';
     $('listrubrik').textContent =
-      `${NIVANAMN[lage.niva]}er sorterade efter ${mattnamn()}`;
+      `${storBokstav(nivanamnFler(lage.niva))} sorterade efter ${mattnamn()}`;
     $('tabellcaption').textContent =
-      `Förändring i ${mattnamnLangt()} per ${NIVANAMN[lage.niva].toLowerCase()}`;
+      `Förändring i ${mattnamnLangt()} per ${nivanamn(lage.niva).toLowerCase()}`;
     $('listfot').textContent = visa.length < rader.length
-      ? `Visar ${visa.length} av ${rader.length} ${NIVANAMN_FLER[lage.niva]}. ` +
+      ? `Visar ${visa.length} av ${rader.length} ${nivanamnFler(lage.niva)}. ` +
         'Zooma in eller filtrera för att se färre.'
-      : `${rader.length} ${NIVANAMN_FLER[lage.niva]}.`;
+      : `${rader.length} ${nivanamnFler(lage.niva)}.`;
   }
+
+  const storBokstav = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   // ---- Brödsmulan ---------------------------------------------------------
 
@@ -545,13 +632,15 @@
       : `<button type="button" data-hopp="${handelse}">${htmlsakert(text)}</button>`);
 
     delar.push(knapp('Hela riket', 'riket', o.typ === 'riket'));
-    if (o.typ === 'valkrets') {
+    if (o.typ === 'topp') {
       delar.push('<span class="pil">›</span>');
-      delar.push(knapp(namnFor('valkrets', o.kod), `valkrets:${o.kod}`, true));
+      delar.push(knapp(namnFor('topp', o.kod), `topp:${o.kod}`, true));
     } else if (o.typ === 'kommun') {
-      const vk = kommunensValkrets(o.kod);
-      delar.push('<span class="pil">›</span>');
-      delar.push(knapp(namnFor('valkrets', vk), `valkrets:${vk}`, false));
+      const tp = kommunensTopp(o.kod);
+      if (tp) {
+        delar.push('<span class="pil">›</span>');
+        delar.push(knapp(namnFor('topp', tp), `topp:${tp}`, false));
+      }
       delar.push('<span class="pil">›</span>');
       delar.push(knapp(namnFor('kommun', o.kod), `kommun:${o.kod}`, true));
     }
@@ -560,63 +649,86 @@
 
   // ---- Kontroller --------------------------------------------------------
 
-  function byggKontroller() {
-    const matt = $('matt');
-    matt.innerHTML = meta.partier
-      .map((p, i) => `<option value="${i}">${htmlsakert(p.kort)} – ${htmlsakert(p.namn)}</option>`)
-      .join('') +
-      '<option value="valdeltagande">Valdeltagande</option>';
-    matt.value = String(lage.matt);
-
-    const vk = $('filter-valkrets');
-    vk.innerHTML = '<option value="">Alla regioner</option>' +
-      meta.valkretsar.map((v) =>
-        `<option value="${htmlsakert(v.kod)}">${htmlsakert(v.namn)}</option>`).join('');
-
-    fyllKommunfilter();
-
-    fyllSoklista();
+  // Partilistan visar de partier som ställt upp i det område man tittar på,
+  // störst först. Det är så lokala partier dyker upp: Stenungsundspartiet finns
+  // i listan när man är i Stenungsund, men inte när man ser hela landet.
+  function partierIOmradet() {
+    const o = aktivtOmrade();
+    const koder = o ? new Set([...Object.keys(o.r), ...Object.keys(o.r0)]) : new Set();
+    if (lage.matt && lage.matt !== 'valdeltagande') koder.add(lage.matt);
+    const roster = (kod) => (o ? (o.r[kod] || 0) : 0);
+    return [...koder]
+      .map((kod) => partiet(kod))
+      .sort((a, b) => (a.kod === 'OVR') - (b.kod === 'OVR') || roster(b.kod) - roster(a.kod));
   }
 
-  // Söklistan får alla kommuner och valkretsar, men bara valdistrikten i det
+  function byggValknappar() {
+    $('valtyp').innerHTML = valen.map((v) =>
+      `<button type="button" class="knapp valtyp-knapp" data-val="${htmlsakert(v.kod)}">` +
+      `${htmlsakert(v.kort)}</button>`).join('');
+    for (const b of $('valtyp').querySelectorAll('.valtyp-knapp')) {
+      b.addEventListener('click', () => byggOmVal(b.dataset.val));
+    }
+  }
+
+  function fyllMattlista() {
+    const partier = partierIOmradet();
+    $('matt').innerHTML = partier
+      .map((p) => `<option value="${htmlsakert(p.kod)}">${htmlsakert(p.kort)} – ${htmlsakert(p.namn)}</option>`)
+      .join('') +
+      '<option value="valdeltagande">Valdeltagande</option>';
+    $('matt').value = lage.matt;
+  }
+
+  function fyllOmradesfilter() {
+    const tp = lage.omrade.typ === 'topp' ? lage.omrade.kod
+      : lage.omrade.typ === 'kommun' ? kommunensTopp(lage.omrade.kod) : '';
+    $('filter-topp-etikett').textContent = data.meta.toppNamn;
+    $('filter-topp').innerHTML =
+      `<option value="">Alla ${htmlsakert(data.meta.toppNamnFler)}</option>` +
+      data.meta.toppnivan.map((t) =>
+        `<option value="${htmlsakert(t.kod)}">${htmlsakert(t.namn)}</option>`).join('');
+    $('filter-topp').value = tp || '';
+
+    const lista = data.meta.kommuner
+      .filter((k) => !tp || k.tp === tp)
+      .slice()
+      .sort((a, b) => a.namn.localeCompare(b.namn, 'sv'));
+    $('filter-kommun').innerHTML = '<option value="">Alla kommuner</option>' +
+      lista.map((k) => `<option value="${htmlsakert(k.kod)}">${htmlsakert(k.namn)}</option>`).join('');
+    $('filter-kommun').value = lage.omrade.typ === 'kommun' ? lage.omrade.kod : '';
+  }
+
+  // Söklistan får alla kommuner och toppnivåer, men bara valdistrikten i det
   // område man tittar på – alla 6 626 på en gång gör listan oanvändbar.
   function fyllSoklista() {
     const rader = [
-      ...meta.valkretsar.map((v) => `${v.namn} (region)`),
-      ...meta.kommuner.map((k) => `${k.namn} (kommun)`),
+      ...data.meta.toppnivan.map((t) => `${t.namn} (${data.meta.toppNamn.toLowerCase()})`),
+      ...data.meta.kommuner.map((k) => `${k.namn} (kommun)`),
     ];
     if (lage.niva === 'valdistrikt' && lage.omrade.typ !== 'riket') {
-      for (const e of synligaEnheter()) {
-        rader.push(`${e.namn} (${namnFor('kommun', e.km)})`);
-      }
+      for (const e of synligaEnheter()) rader.push(`${e.namn} (${namnFor('kommun', e.km)})`);
     }
     $('soklista').innerHTML = rader
       .map((r) => `<option value="${htmlsakert(r)}"></option>`).join('');
   }
 
-  function fyllKommunfilter() {
-    const vald = lage.omrade.typ === 'valkrets' ? lage.omrade.kod
-      : lage.omrade.typ === 'kommun' ? kommunensValkrets(lage.omrade.kod) : '';
-    const lista = meta.kommuner
-      .filter((k) => !vald || (omraden.km[k.kod] && omraden.km[k.kod].vk === vald))
-      .sort((a, b) => a.namn.localeCompare(b.namn, 'sv'));
-    $('filter-kommun').innerHTML = '<option value="">Alla kommuner</option>' +
-      lista.map((k) => `<option value="${htmlsakert(k.kod)}">${htmlsakert(k.namn)}</option>`).join('');
-    $('filter-kommun').value = lage.omrade.typ === 'kommun' ? lage.omrade.kod : '';
-    $('filter-valkrets').value = vald || '';
-  }
-
-  function stallInNivaknappar() {
+  function stallInKnappar() {
+    for (const b of document.querySelectorAll('.valtyp-knapp')) {
+      b.setAttribute('aria-pressed', String(b.dataset.val === lage.val));
+    }
     for (const b of document.querySelectorAll('.niva-knapp')) {
       b.setAttribute('aria-pressed', String(b.dataset.niva === lage.niva));
     }
     for (const b of document.querySelectorAll('.list-knapp')) {
       b.setAttribute('aria-pressed', String(b.dataset.sort === lage.sortering));
     }
+    $('niva-topp').textContent = data.meta.toppNamn;
     $('matt-hjalp').textContent = lage.matt === 'valdeltagande'
-      ? 'Förändring i andelen röstberättigade som röstade, i procentenheter.'
-      : `Förändring i ${meta.partier[lage.matt].namn}s andel av rösterna, ` +
-        'i procentenheter.';
+      ? `Förändring i andelen röstberättigade som röstade i valet till ` +
+        `${data.meta.valtypNamn.toLowerCase()}, i procentenheter.`
+      : `Förändring i ${partiet(lage.matt).namn}s andel av rösterna i valet till ` +
+        `${data.meta.valtypNamn.toLowerCase()}, i procentenheter.`;
   }
 
   // ---- Uppdatering --------------------------------------------------------
@@ -629,20 +741,17 @@
   }
 
   async function uppdatera({ passa = false } = {}) {
-    // Överordnade gränser ritas ovanpå, så de nivåerna laddas med.
-    const behov = new Set([lage.niva, 'valkrets']);
+    // Överordnade gränser ritas ovanpå, så de lagren laddas med.
+    const behov = new Set([geoNamn(lage.niva), geoNamn('topp')]);
     if (lage.niva === 'valdistrikt') behov.add('kommun');
-    await Promise.all([...behov].map(laddaLager));
-
-    for (const niva of Object.keys(lager)) {
-      const l = lager[niva];
-      if (l.enheter) for (const e of l.enheter) e.data = dataFor(niva, e.kod);
-    }
+    await Promise.all([...behov].map(laddaGeografi));
+    bindData();
 
     $('kartladdare').hidden = true;
     if (passa) passaIn(synligaEnheter());
-    stallInNivaknappar();
+    stallInKnappar();
     ritBrodsmula();
+    fyllMattlista();
     fyllSoklista();
     ritDetalj();
     ritTabell();
@@ -656,14 +765,46 @@
     lage.omrade = omrade;
     lage.niva = niva;
     lage.vald = vald;
-    fyllKommunfilter();
+    fyllOmradesfilter();
     uppdatera({ passa: true });
   }
 
+  // Byter val. Samma parti behålls om det finns även i det nya valet – S är S i
+  // alla tre valen – annars väljs det största. Området behålls också, så att
+  // man kan jämföra samma kommun mellan valen.
+  async function byggOmVal(valtyp) {
+    if (valtyp === lage.val) return;
+    $('kartladdare').hidden = false;
+    $('kartladdare').textContent = 'Laddar valet …';
+    const nytt = await laddaVal(valtyp);
+    lage.val = valtyp;
+    data = nytt;
+    if (lage.matt !== 'valdeltagande' && !nytt.partiPerKod.has(lage.matt)) {
+      lage.matt = nytt.meta.partier[0].kod;
+    }
+    // Gotland finns inte i regionvalet, och toppnivåkoderna betyder olika saker
+    // i olika val – hamnar vi utanför kartan går vi tillbaka till hela riket.
+    if (lage.omrade.typ === 'topp' && !nytt.omraden.tp[lage.omrade.kod]) {
+      lage.omrade = { typ: 'riket', kod: null };
+    }
+    if (lage.omrade.typ === 'kommun' && !nytt.omraden.km[lage.omrade.kod]) {
+      lage.omrade = { typ: 'riket', kod: null };
+    }
+    if (lage.vald && !dataFor(lage.vald.niva, lage.vald.kod)) lage.vald = null;
+    fyllText();
+    fyllOmradesfilter();
+    await uppdatera({ passa: true });
+  }
+
   function klickaEnhet(e) {
-    if (lage.niva === 'valkrets') {
-      gaTill({ typ: 'valkrets', kod: e.kod }, 'kommun',
-        { vald: { niva: 'valkrets', kod: e.kod } });
+    if (!e.iValet) {
+      lage.vald = { niva: lage.niva, kod: e.kod };
+      ritDetalj();
+      begarRitning();
+      return;
+    }
+    if (lage.niva === 'topp') {
+      gaTill({ typ: 'topp', kod: e.kod }, 'kommun', { vald: { niva: 'topp', kod: e.kod } });
     } else if (lage.niva === 'kommun') {
       gaTill({ typ: 'kommun', kod: e.kod }, 'valdistrikt',
         { vald: { niva: 'kommun', kod: e.kod } });
@@ -680,7 +821,8 @@
 
   function skrivHash() {
     const p = new URLSearchParams();
-    p.set('matt', lage.matt === 'valdeltagande' ? 'vd' : meta.partier[lage.matt].kort);
+    p.set('val', lage.val);
+    p.set('matt', lage.matt === 'valdeltagande' ? 'vd' : lage.matt);
     p.set('niva', lage.niva);
     if (lage.omrade.typ !== 'riket') p.set('omrade', `${lage.omrade.typ}:${lage.omrade.kod}`);
     if (lage.skala !== 'auto') p.set('skala', lage.skala);
@@ -691,28 +833,28 @@
 
   function lasHash() {
     const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const val = p.get('val');
+    if (valen.some((v) => v.kod === val)) lage.val = val;
     const matt = p.get('matt');
-    if (matt === 'vd') lage.matt = 'valdeltagande';
-    else if (matt) {
-      const i = meta.partier.findIndex((x) => x.kort === matt);
-      if (i >= 0) lage.matt = i;
-    }
-    if (['valkrets', 'kommun', 'valdistrikt'].includes(p.get('niva'))) lage.niva = p.get('niva');
+    if (matt) lage.matt = matt === 'vd' ? 'valdeltagande' : matt;
+    if (['topp', 'kommun', 'valdistrikt'].includes(p.get('niva'))) lage.niva = p.get('niva');
     const omrade = (p.get('omrade') || '').split(':');
-    if (omrade[0] === 'valkrets' || omrade[0] === 'kommun') {
+    if (omrade[0] === 'topp' || omrade[0] === 'kommun') {
       lage.omrade = { typ: omrade[0], kod: omrade[1] };
     }
     if (p.get('skala')) lage.skala = p.get('skala');
     const vald = (p.get('vald') || '').split(':');
-    if (lager[vald[0]]) lage.vald = { niva: vald[0], kod: vald[1] };
+    if (['topp', 'kommun', 'valdistrikt'].includes(vald[0])) {
+      lage.vald = { niva: vald[0], kod: vald[1] };
+    }
   }
 
   // ---- Händelser ----------------------------------------------------------
 
   function kopplaHandelser() {
     $('matt').addEventListener('change', (e) => {
-      lage.matt = e.target.value === 'valdeltagande' ? 'valdeltagande' : Number(e.target.value);
-      stallInNivaknappar();
+      lage.matt = e.target.value;
+      stallInKnappar();
       ritDetalj();
       ritTabell();
       begarRitning();
@@ -732,9 +874,10 @@
         // Man kan inte titta på kommunnivå inifrån en enskild kommun.
         let omrade = lage.omrade;
         if (omrade.typ === 'kommun' && niva !== 'valdistrikt') {
-          omrade = { typ: 'valkrets', kod: kommunensValkrets(omrade.kod) };
+          const tp = kommunensTopp(omrade.kod);
+          omrade = tp ? { typ: 'topp', kod: tp } : { typ: 'riket', kod: null };
         }
-        if (omrade.typ === 'valkrets' && niva === 'valkrets') omrade = { typ: 'riket', kod: null };
+        if (omrade.typ === 'topp' && niva === 'topp') omrade = { typ: 'riket', kod: null };
         gaTill(omrade, niva);
       });
     }
@@ -742,31 +885,30 @@
     for (const b of document.querySelectorAll('.list-knapp')) {
       b.addEventListener('click', () => {
         lage.sortering = b.dataset.sort;
-        stallInNivaknappar();
+        stallInKnappar();
         ritTabell();
       });
     }
 
-    $('filter-valkrets').addEventListener('change', (e) => {
+    $('filter-topp').addEventListener('change', (e) => {
       const kod = e.target.value;
-      if (!kod) gaTill({ typ: 'riket', kod: null }, 'valkrets');
-      else gaTill({ typ: 'valkrets', kod }, 'kommun');
+      if (!kod) gaTill({ typ: 'riket', kod: null }, 'topp');
+      else gaTill({ typ: 'topp', kod }, 'kommun');
     });
 
     $('filter-kommun').addEventListener('change', (e) => {
       const kod = e.target.value;
       if (!kod) {
-        const vk = $('filter-valkrets').value;
-        gaTill(vk ? { typ: 'valkrets', kod: vk } : { typ: 'riket', kod: null },
-          vk ? 'kommun' : 'valkrets');
+        const tp = $('filter-topp').value;
+        gaTill(tp ? { typ: 'topp', kod: tp } : { typ: 'riket', kod: null },
+          tp ? 'kommun' : 'topp');
       } else {
-        gaTill({ typ: 'kommun', kod }, 'valdistrikt',
-          { vald: { niva: 'kommun', kod } });
+        gaTill({ typ: 'kommun', kod }, 'valdistrikt', { vald: { niva: 'kommun', kod } });
       }
     });
 
     $('aterstall').addEventListener('click', () => {
-      gaTill({ typ: 'riket', kod: null }, 'valkrets');
+      gaTill({ typ: 'riket', kod: null }, 'topp');
     });
 
     $('sok').addEventListener('change', (e) => sok(e.target.value));
@@ -775,15 +917,15 @@
       const knapp = e.target.closest('[data-hopp]');
       if (!knapp) return;
       const [typ, kod] = knapp.dataset.hopp.split(':');
-      if (typ === 'riket') gaTill({ typ: 'riket', kod: null }, 'valkrets');
-      else if (typ === 'valkrets') gaTill({ typ: 'valkrets', kod }, 'kommun');
+      if (typ === 'riket') gaTill({ typ: 'riket', kod: null }, 'topp');
+      else if (typ === 'topp') gaTill({ typ: 'topp', kod }, 'kommun');
       else gaTill({ typ: 'kommun', kod }, 'valdistrikt');
     });
 
     $('tabell').addEventListener('click', (e) => {
       const rad = e.target.closest('tr[data-kod]');
       if (!rad) return;
-      const enhet = lager[lage.niva].perKod.get(rad.dataset.kod);
+      const enhet = geoLager(lage.niva).perKod.get(rad.dataset.kod);
       if (enhet) klickaEnhet(enhet);
     });
 
@@ -915,41 +1057,37 @@
 
   // Sökrutan matar från söklistan, där varje rad har sin sort inom parentes:
   // "Karlshamn (kommun)", "Mörrum östra (Karlshamn)". Skriver man bara ett namn
-  // letar vi i tur och ordning bland kommuner, regioner och valdistrikt.
+  // letar vi i tur och ordning bland kommuner, toppnivåer och valdistrikt.
   function sok(text) {
     const parentes = /\s*\(([^)]*)\)\s*$/.exec(text);
     const sort = parentes ? parentes[1].trim().toLowerCase() : '';
     const fras = text.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
     if (!fras) return;
+    const toppsort = data.meta.toppNamn.toLowerCase();
 
     const traffa = (lista, namn) => lista.find((x) => namn(x).toLowerCase() === fras)
       || lista.find((x) => namn(x).toLowerCase().startsWith(fras));
 
-    if (sort !== 'region') {
-      const kommun = traffa(meta.kommuner, (k) => k.namn);
-      if (kommun && (sort === 'kommun' || sort === '' || !distriktPerKod.size)) {
+    if (sort !== toppsort) {
+      const kommun = traffa(data.meta.kommuner, (k) => k.namn);
+      if (kommun && (sort === 'kommun' || sort === '')) {
         gaTill({ typ: 'kommun', kod: kommun.kod }, 'valdistrikt',
           { vald: { niva: 'kommun', kod: kommun.kod } });
         return;
       }
     }
 
-    if (sort === '' || sort === 'region') {
-      const valkrets = traffa(meta.valkretsar, (v) => v.namn);
-      if (valkrets) {
-        gaTill({ typ: 'valkrets', kod: valkrets.kod }, 'kommun',
-          { vald: { niva: 'valkrets', kod: valkrets.kod } });
+    if (sort === '' || sort === toppsort) {
+      const topp = traffa(data.meta.toppnivan, (t) => t.namn);
+      if (topp) {
+        gaTill({ typ: 'topp', kod: topp.kod }, 'kommun',
+          { vald: { niva: 'topp', kod: topp.kod } });
         return;
       }
-      if (sort === 'region') return;
+      if (sort === toppsort) return;
     }
 
-    // Valdistriktsnamn finns först när distriktsdatat är hämtat.
-    if (!distriktPerKod.size) {
-      laddaLager('valdistrikt').then(() => sok(text));
-      return;
-    }
-    const distrikt = traffa([...distriktPerKod.values()], (d) => d.n);
+    const distrikt = traffa([...data.distriktPerKod.values()], (d) => d.n);
     if (distrikt) {
       gaTill({ typ: 'kommun', kod: distrikt.km }, 'valdistrikt',
         { vald: { niva: 'valdistrikt', kod: distrikt.k } });
@@ -959,33 +1097,36 @@
   // ---- Text som beror på datat -------------------------------------------
 
   function fyllText() {
-    const kvar = meta.antalValdistriktSomSkaRaknas - meta.antalValdistriktRaknade;
+    const m = data.meta;
+    const kvar = m.antalValdistriktSomSkaRaknas - m.antalValdistriktRaknade;
+    document.title = `Förändringskartan – ${m.valtypNamn} 2026 mot 2022`;
     $('underrubrik').textContent =
-      `Riksdagsvalet ${meta.valdatum.slice(0, 4)} jämfört med ${meta.tidigareValdatum.slice(0, 4)}`;
+      `Valet till ${m.valtypNamn.toLowerCase()} ${m.valdatum.slice(0, 4)} ` +
+      `jämfört med ${m.tidigareValdatum.slice(0, 4)}`;
 
-    if (meta.rakningstillfalle !== 'slutlig') {
-      const banner = $('rakningsbanner');
-      banner.hidden = false;
+    const banner = $('rakningsbanner');
+    banner.hidden = m.rakningstillfalle === 'slutlig';
+    if (!banner.hidden) {
       banner.textContent =
-        `Preliminärt valresultat. ${meta.antalValdistriktRaknade.toLocaleString('sv-SE')} av ` +
-        `${meta.antalValdistriktSomSkaRaknas.toLocaleString('sv-SE')} valdistrikt är räknade` +
+        `Preliminärt valresultat. ${m.antalValdistriktRaknade.toLocaleString('sv-SE')} av ` +
+        `${m.antalValdistriktSomSkaRaknas.toLocaleString('sv-SE')} valdistrikt är räknade` +
         (kvar > 0 ? ` – ${kvar.toLocaleString('sv-SE')} återstår.` : '.') +
-        ` Senast uppdaterat hos Valmyndigheten: ${meta.senasteUppdateringstid}.`;
+        ` Senast uppdaterat hos Valmyndigheten: ${m.senasteUppdateringstid}.`;
     }
 
-    const ojamforbara = meta.distriktOjamforbara;
     $('om-jamforbarhet').textContent =
       `Valdistrikt ritas om mellan valen. Där gränserna ändrats finns inga ` +
       `jämförbara siffror för 2022, och distriktet lämnas ofärgat på kartan. ` +
-      `I det här valet gäller det ${ojamforbara.toLocaleString('sv-SE')} av ` +
-      `${meta.antalValdistriktSomSkaRaknas.toLocaleString('sv-SE')} distrikt – ` +
+      `I valet till ${m.valtypNamn.toLowerCase()} gäller det ` +
+      `${m.distriktOjamforbara.toLocaleString('sv-SE')} av ` +
+      `${m.antalValdistriktSomSkaRaknas.toLocaleString('sv-SE')} distrikt – ` +
       `där ingår också uppsamlingsdistrikten, dit sena brev- och budröster går ` +
       `och som inte har någon egen geografi.`;
 
     $('om-kalla').textContent =
-      `Siffrorna hämtades från Valmyndigheten ${new Date(meta.hamtat).toLocaleString('sv-SE')} ` +
-      `och gäller det ${meta.rakningstillfalle}a valresultatet i valet till riksdagen ` +
-      `${meta.valdatum}, jämfört med valet ${meta.tidigareValdatum}.`;
+      `Siffrorna hämtades från Valmyndigheten ${new Date(m.hamtat).toLocaleString('sv-SE')} ` +
+      `och gäller det ${m.rakningstillfalle}a resultatet i valet till ` +
+      `${m.valtypNamn.toLowerCase()} ${m.valdatum}, jämfört med valet ${m.tidigareValdatum}.`;
   }
 
   // ---- Start --------------------------------------------------------------
@@ -993,23 +1134,27 @@
   async function start() {
     matDuken();
     try {
-      [meta, omraden] = await Promise.all([hamtaJson('meta.json'), hamtaJson('omraden.json')]);
+      valen = (await hamtaJson('val.json')).val;
+      lasHash();
+      data = await laddaVal(lage.val);
     } catch (fel) {
       $('kartladdare').textContent = `Kunde inte läsa valdata: ${fel.message}`;
       return;
     }
-    // Utan val i adressen visas partiet som ökat mest i riket. Då har kartan
+    // Utan val i adressen visas partiet som ökat mest i landet. Då har kartan
     // både orange och lila områden från början, i stället för att bli enfärgad
     // som den blir för partiet som backat mest.
-    lage.matt = meta.partier
-      .map((p, i) => [i, p.andel - p.andelFore])
-      .sort((a, b) => b[1] - a[1])[0][0];
-
-    lasHash();
-    byggKontroller();
+    if (!lage.matt) {
+      const riket = data.omraden.riket;
+      lage.matt = data.meta.partier
+        .map((p) => [p.kod, (K.andel(riket.r[p.kod] || 0, riket.g) || 0)
+          - (K.andel(riket.r0[p.kod] || 0, riket.g0) || 0)])
+        .sort((a, b) => b[1] - a[1])[0][0];
+    }
+    byggValknappar();
     fyllText();
+    fyllOmradesfilter();
     kopplaHandelser();
-    $('matt').value = lage.matt === 'valdeltagande' ? 'valdeltagande' : String(lage.matt);
     $('skala').value = lage.skala;
     await uppdatera({ passa: true });
   }
