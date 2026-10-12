@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05060c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Splatfönstret</title>
+<meta name="description" content="Ett Gaussian splat som du tittar in i genom mobilen. Frontkameran följer ditt huvud och bilden ritas om som om skärmen vore ett fönster.">
+<link rel="stylesheet" href="splat.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪟</text></svg>">
+</head>
+<body>
+<canvas id="duk" aria-label="Scenen. Dra för att vrida, nyp för att zooma, tryck för att dölja knapparna."></canvas>
+
+<div class="topp">
+  <button class="status" id="status" data-lage="av">
+    <span class="punkt" aria-hidden="true"></span>
+    <span id="statustext">Ingen kamera</span>
+  </button>
+  <div class="forhandsvisning dold" id="forhandsvisning" aria-hidden="true">
+    <video id="kamera" playsinline muted></video>
+    <span class="ogonpunkt" id="ogonpunkt" hidden></span>
+  </div>
+</div>
+
+<div class="laddning" id="laddning" hidden>
+  <p id="laddningstext">Hämtar …</p>
+  <div class="stapel"><div class="fyllning" id="stapelfyllning"></div></div>
+</div>
+
+<nav class="botten" aria-label="Scener">
+  <div class="scener" id="scener"></div>
+  <button class="ikonknapp" id="oppnaInstallningar" aria-label="Inställningar" aria-expanded="false" aria-controls="installningar">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 7h10.2a3 3 0 0 1 5.6 0H21v2h-2.2a3 3 0 0 1-5.6 0H3V7Zm13 1a1 1 0 1 0 0 .01ZM3 15h2.2a3 3 0 0 1 5.6 0H21v2H10.8a3 3 0 0 1-5.6 0H3v-2Zm5 1a1 1 0 1 0 0 .01Z"/></svg>
+  </button>
+</nav>
+
+<section class="ark" id="installningar" hidden aria-labelledby="installningsrubrik">
+  <header class="arkhuvud">
+    <h2 id="installningsrubrik">Inställningar</h2>
+    <button class="ikonknapp liten" id="stangInstallningar" aria-label="Stäng">✕</button>
+  </header>
+
+  <label class="reglage">
+    <span class="etikett">Effekt <output id="effektVarde"></output></span>
+    <input type="range" id="effekt" min="0.5" max="3" step="0.1">
+    <small>Hur mycket huvudrörelsen förstärks. 1 är fysiskt rätt.</small>
+  </label>
+  <label class="reglage">
+    <span class="etikett">Djup <output id="djupVarde"></output></span>
+    <input type="range" id="djup" min="-120" max="60" step="1">
+    <small>Skjut scenen längre in i telefonen eller ut ur den.</small>
+  </label>
+  <label class="reglage">
+    <span class="etikett">Storlek <output id="storlekVarde"></output></span>
+    <input type="range" id="storlek" min="-2" max="2" step="0.05">
+  </label>
+  <label class="val">
+    <span class="etikett">Upplösning</span>
+    <select id="kvalitet">
+      <option value="1">Snabb</option>
+      <option value="1.5">Normal</option>
+      <option value="2">Skarp</option>
+      <option value="3">Högsta</option>
+    </select>
+  </label>
+  <label class="kryss"><input type="checkbox" id="visaKamera"> Visa kamerabilden</label>
+  <label class="kryss"><input type="checkbox" id="spegla"> Spegelvänd sidledsrörelsen</label>
+
+  <div class="knapprad">
+    <button id="centrera">Centrera huvudet</button>
+    <button id="vand">Vänd upp och ned</button>
+    <button id="aterstall">Återställ vyn</button>
+  </div>
+
+  <p class="teknik" id="teknik"></p>
+
+  <details class="om">
+    <summary>Hur fungerar det?</summary>
+    <p>Frontkameran hittar dina ögon med Googles ansiktsmodell MediaPipe. Avståndet mellan ögonen i bilden ger hur långt bort du är, och läget i bilden var i sidled du är. Scenen ritas sedan med en sned synpyramid från ditt öga genom skärmens fyra hörn – precis den bild ett fönster i telefonens storlek skulle visa.</p>
+    <p>Scenerna är gjorda av gaussiska splattar: hundratusentals små, mjuka, halvgenomskinliga ellipsoider som tillsammans bildar en fotorealistisk 3D-bild. Egna filer i formaten <code>.splat</code> och <code>.ply</code> (till exempel från Polycam, Luma, Postshot eller Scaniverse) går att öppna.</p>
+    <p>Kamerabilden stannar i telefonen. Gosedjuret, skon och tåget är exempelfilerna till Kevin Kwoks visare <a href="https://github.com/antimatter15/splat">antimatter15/splat</a> och hämtas från Hugging Face.</p>
+  </details>
+</section>
+
+<div class="start" id="start">
+  <div class="startkort">
+    <h1>Splatfönstret</h1>
+    <p>Håll telefonen framför dig och rör på huvudet. Frontkameran ser var du är, och bilden ritas om som om skärmen vore ett fönster in i scenen.</p>
+    <button class="primar" id="startaKamera">Starta kameran</button>
+    <button class="sekundar" id="utanKamera">Fortsätt utan kamera</button>
+    <p class="finstilt">Kamerabilden stannar i telefonen – inget laddas upp.</p>
+  </div>
+</div>
+
+<div class="meddelande" id="meddelande" role="status" hidden></div>
+
+<script src="fonster.js"></script>
+<script src="splatdata.js"></script>
+<script src="demoscen.js"></script>
+<script src="renderare.js"></script>
+<script src="sparning.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
