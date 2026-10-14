@@ -37,16 +37,21 @@ dig.
    när man vrider scenen med fingret.
 
 Kamerabilden stannar i telefonen. Det som hämtas utifrån är MediaPipe-biblioteket
-(jsDelivr) och modellfilen (Google), samt de nedladdningsbara exempelscenerna
-(Hugging Face).
+(jsDelivr) och modellfilen (Google), samt de större exempelscenerna (GitHub).
 
 ## Scener
 
 | Scen | Källa | Storlek |
 |---|---|---|
-| Neonrummet | byggs i webbläsaren av `demoscen.js` – ett rum med rutnät, exakt lika stort som skärmen, och planeter på olika djup; månen svävar framför glaset | ~45 000 splattar |
-| Gosedjur, Sko, Tåg | exempelfilerna till [antimatter15/splat](https://github.com/antimatter15/splat), hämtas från `huggingface.co/cakewalk/splat-data` | 9–33 MB |
+| Gosedjur (visas först) | `scener/gosedjur.splat` i repot – `Unicorn_Stuffy.ply` ur Babylon.js tillgångsbibliotek, omvandlad till `.splat` (bara färgen rakt fram behålls, därför 1,6 MB i stället för 12) | 49 602 splattar |
+| Växter, Legoskalle, Papegoja | `gs_Plants.splat`, `gs_Skull.splat` och `gs_Sqwakers_trimed.splat` ur Babylon.js tillgångsbibliotek, hämtas från GitHub vid en låst version | 5–12 MB |
+| Neonrummet | byggs i webbläsaren av `demoscen.js` – ett rum med rutnät, exakt lika stort som skärmen, och planeter på olika djup; månen svävar framför glaset. Visas också om inget kan hämtas | ~45 000 splattar |
 | Egen fil | `.splat` (antimatter15:s format) eller `.ply` (formatet från originalkoden för 3DGS, som Polycam, Luma, Postshot och Scaniverse exporterar). Vanliga punktmoln med bara färg fungerar också | – |
+
+De inspelade scenerna kommer från [BabylonJS/Assets](https://github.com/BabylonJS/Assets)
+och är licensierade under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+En adress till en egen fil går också att ange: `?url=https://…/fil.splat`
+(servern måste tillåta CORS). `?scen=vaxter` öppnar en av de inbyggda scenerna.
 
 Tränade scener har ingen naturlig storlek eller placering, så motivet görs
 ungefär lika stort som skärmens kortsida och läggs strax bakom glaset. Mitten

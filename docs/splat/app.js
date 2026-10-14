@@ -7,12 +7,17 @@
   const klamra = (v, min, max) => Math.min(max, Math.max(min, v));
   const tal = (v, d = 0) => v.toFixed(d).replace('.', ',').replace('-', '−');
 
-  const HF = 'https://huggingface.co/cakewalk/splat-data/resolve/main/';
+  // Riktiga, inspelade splattar ur Babylon.js tillgångsbibliotek (CC BY 4.0),
+  // låsta till en viss version så att filerna inte kan bytas ut under oss.
+  // Gosedjuret ligger här i repot, omvandlat från PLY, så att något riktigt
+  // syns direkt.
+  const BABYLON = 'https://raw.githubusercontent.com/BabylonJS/Assets/c81f5d744fe8d41acfebd89eaeb7008c6f9659e3/splats/';
   const SCENER = [
+    { id: 'gosedjur', namn: 'Gosedjur', info: '1,6 MB', url: 'scener/gosedjur.splat' },
+    { id: 'vaxter', namn: 'Växter', info: '12 MB', url: BABYLON + 'gs_Plants.splat' },
+    { id: 'skalle', namn: 'Legoskalle', info: '5 MB', url: BABYLON + 'gs_Skull.splat' },
+    { id: 'papegoja', namn: 'Papegoja', info: '8 MB', url: BABYLON + 'gs_Sqwakers_trimed.splat', storlek: 0.6 },
     { id: 'neon', namn: 'Neonrummet', info: 'Byggs direkt' },
-    { id: 'gosedjur', namn: 'Gosedjur', info: '9 MB', url: HF + 'plush.splat' },
-    { id: 'sko', namn: 'Sko', info: '9 MB', url: HF + 'nike.splat' },
-    { id: 'tag', namn: 'Tåg', info: '33 MB', url: HF + 'train.splat' },
   ];
   const BAKGRUND = [5 / 255, 6 / 255, 12 / 255];
   const NARA = 10; // mm från ögat
@@ -120,7 +125,7 @@
 
   // ---- Scenerna --------------------------------------------------------------
 
-  function installeraScen({ id, namn, scen, bakning, djup }) {
+  function installeraScen({ id, namn, scen, bakning, djup, storlek = 0 }) {
     const packad = S.packa(scen, bakning);
     renderare.laddaScen(packad);
     generation++;
@@ -128,7 +133,7 @@
     sorteradRad = null;
     sorterare.postMessage({ typ: 'data', positioner: packad.positioner, antal: packad.antal, generation },
       [packad.positioner.buffer]);
-    lage.scen = { id, namn, antal: packad.antal, djup };
+    lage.scen = { id, namn, antal: packad.antal, djup, storlek };
     aterstallVy();
     markeraScen(id);
   }
@@ -151,12 +156,12 @@
   }
   const doljLaddning = () => { $('laddning').hidden = true; };
 
-  async function laddaFranUrl(id, namn, url) {
+  async function laddaFranUrl(def) {
     const nr = ++laddningsnummer;
-    const vad = namn.toLowerCase();
+    const vad = def.namn.toLowerCase();
     visaLaddning(`Hämtar ${vad} …`, 0);
     try {
-      const svar = await fetch(url);
+      const svar = await fetch(def.url);
       if (!svar.ok) throw new S.Splatfel(`Kunde inte hämta ${vad} – servern svarade ${svar.status}.`);
       const total = Number(svar.headers.get('content-length')) || 0;
       let buffer;
@@ -180,7 +185,7 @@
         buffer = await svar.arrayBuffer();
       }
       if (nr !== laddningsnummer) return;
-      await laddaBuffert(buffer, id, namn, nr);
+      await laddaBuffert(buffer, def, nr);
     } catch (e) {
       if (nr !== laddningsnummer) return;
       misslyckad(e, `Kunde inte hämta ${vad}. Kontrollera uppkopplingen och försök igen.`);
@@ -193,7 +198,7 @@
     try {
       const buffer = await fil.arrayBuffer();
       if (nr !== laddningsnummer) return;
-      await laddaBuffert(buffer, 'egen', fil.name, nr);
+      await laddaBuffert(buffer, { id: 'egen', namn: fil.name }, nr);
     } catch (e) {
       if (nr !== laddningsnummer) return;
       misslyckad(e, `Kunde inte läsa ${fil.name}.`);
@@ -204,12 +209,14 @@
     doljLaddning();
     console.error(e);
     visaMeddelande(e instanceof S.Splatfel ? e.message : standardtext, 'fel');
-    markeraScen(lage.scen && lage.scen.id);
+    // Går det inte att hämta något alls visas Neonrummet, som inte behöver nätet.
+    if (!lage.scen) visaDemo();
+    markeraScen(lage.scen.id);
   }
 
   // Tränade scener har ingen naturlig storlek eller placering. Motivet görs
   // ungefär lika stort som skärmens kortsida och läggs strax bakom glaset.
-  async function laddaBuffert(buffer, id, namn, nr) {
+  async function laddaBuffert(buffer, { id, namn, storlek }, nr) {
     visaLaddning('Förbereder splattarna …', null);
     await new Promise((r) => setTimeout(r, 30)); // låt texten hinna synas
     if (nr !== laddningsnummer) return;
@@ -224,6 +231,7 @@
       id, namn, scen,
       bakning: { centrum, skala: mal / (r50 || 1), rotation: S.COLMAP_TILL_FONSTER },
       djup: -mal * 1.15,
+      storlek,
     });
     doljLaddning();
   }
@@ -232,7 +240,7 @@
     if (lage.scen && lage.scen.id === def.id && $('laddning').hidden) return;
     markeraScen(def.id);
     if (def.url) {
-      laddaFranUrl(def.id, def.namn, def.url);
+      laddaFranUrl(def);
     } else {
       ++laddningsnummer;
       doljLaddning();
@@ -279,7 +287,7 @@
   // ---- Vyn: användarens vridning, storlek och djup ---------------------------
 
   function aterstallVy() {
-    lage.vy = { yaw: 0, pitch: 0, vand: false, djup: 0, storlek: 0 };
+    lage.vy = { yaw: 0, pitch: 0, vand: false, djup: 0, storlek: lage.scen ? lage.scen.storlek : 0 };
     lage.smutsig = true;
     synkaReglage();
   }
@@ -595,14 +603,12 @@
   byggScenval();
   sattStatus('av');
   const fraga = new URLSearchParams(location.search);
-  const forvald = SCENER.find((d) => d.id === fraga.get('scen'));
-  visaDemo();
   if (fraga.get('url')) {
     const url = fraga.get('url');
     markeraScen('egen');
-    laddaFranUrl('egen', decodeURIComponent(url.split('/').pop().split('?')[0]) || 'Scenen', url);
-  } else if (forvald && forvald.url) {
-    valjScen(forvald);
+    laddaFranUrl({ id: 'egen', namn: decodeURIComponent(url.split('/').pop().split('?')[0]) || 'Scenen', url });
+  } else {
+    valjScen(SCENER.find((d) => d.id === fraga.get('scen')) || SCENER[0]);
   }
   requestAnimationFrame(ruta);
 })();

@@ -310,3 +310,15 @@ describe("Egenskap: demoscenen", () => {
     assert.ok(scen.antal > 30000 && scen.antal < 200000, `${scen.antal} splattar`);
   });
 });
+
+describe("Egenskap: den medföljande scenen", () => {
+  it("Givet gosedjuret som visas först, så går filen att läsa och har rimliga värden", () => {
+    const fs = require("node:fs");
+    const b = fs.readFileSync(require("node:path").join(__dirname, "../docs/splat/scener/gosedjur.splat"));
+    const scen = S.lasFil(b.buffer.slice(b.byteOffset, b.byteOffset + b.length));
+    assert.equal(scen.antal, 49602);
+    assert.ok(scen.pos.every(Number.isFinite) && scen.skala.every((v) => v >= 0 && Number.isFinite(v)));
+    const { r50 } = S.ramaIn(scen);
+    assert.ok(r50 > 0);
+  });
+});

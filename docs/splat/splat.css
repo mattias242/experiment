@@ -129,6 +129,7 @@ button, select, input { font: inherit; color: inherit; }
   border: 1px solid var(--kant);
   box-shadow: var(--skugga);
   text-align: center;
+  z-index: 3;
 }
 .laddning p { margin: 0 0 10px; font-size: 14px; }
 .stapel { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
@@ -272,6 +273,7 @@ body.lugn .topp { opacity: 0; }
   place-items: end center;
   padding: 16px 16px calc(var(--sakert-botten) + 24px);
   background: linear-gradient(to top, rgba(5, 6, 12, 0.92) 30%, rgba(5, 6, 12, 0.2));
+  z-index: 2;
 }
 .startkort { width: min(420px, 100%); }
 .startkort h1 { margin: 0 0 8px; font-size: 30px; letter-spacing: -0.01em; }
@@ -302,6 +304,7 @@ body.lugn .topp { opacity: 0; }
   border: 1px solid var(--kant);
   box-shadow: var(--skugga);
   font-size: 14px;
+  z-index: 4;
 }
 .meddelande[data-typ="fel"] { border-color: rgba(255, 122, 122, 0.5); }
 
